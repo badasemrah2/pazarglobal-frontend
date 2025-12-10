@@ -14,12 +14,12 @@ export default function ListingsPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState('newest');
   const [showFilters, setShowFilters] = useState(false);
-  
+
   // Use mock data by default, Supabase data when available
   const [filteredListings, setFilteredListings] = useState<Listing[]>(listings);
   const [isLoadingFromSupabase, setIsLoadingFromSupabase] = useState(false);
   const [useSupabaseData, setUseSupabaseData] = useState(true); // Toggle to switch between mock and real data
-  
+
   const [filters, setFilters] = useState<FilterState>({
     categories: [],
     priceRange: [0, 50000],
@@ -50,7 +50,7 @@ export default function ListingsPage() {
       setIsLoadingFromSupabase(true);
       try {
         const data = await fetchListingsWithFilters(filters);
-        
+
         // Convert Supabase data to frontend Listing type
         const convertedListings: Listing[] = data.map((item: DBListing) => ({
           id: item.id,
@@ -121,7 +121,7 @@ export default function ListingsPage() {
       result = result.filter(item => {
         const itemDate = new Date(item.createdAt);
         const diffDays = Math.floor((now.getTime() - itemDate.getTime()) / (1000 * 60 * 60 * 24));
-        
+
         switch (filters.dateRange) {
           case 'today':
             return diffDays === 0;
@@ -240,17 +240,15 @@ export default function ListingsPage() {
               <div className="flex items-center bg-white rounded-full shadow-md p-1">
                 <button
                   onClick={() => setViewMode('grid')}
-                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                    viewMode === 'grid' ? 'bg-gradient-primary text-white' : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${viewMode === 'grid' ? 'bg-gradient-primary text-white' : 'text-gray-600 hover:text-gray-900'
+                    }`}
                 >
                   <i className="ri-grid-line text-lg" />
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                    viewMode === 'list' ? 'bg-gradient-primary text-white' : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${viewMode === 'list' ? 'bg-gradient-primary text-white' : 'text-gray-600 hover:text-gray-900'
+                    }`}
                 >
                   <i className="ri-list-check text-lg" />
                 </button>

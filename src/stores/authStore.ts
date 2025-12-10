@@ -14,8 +14,17 @@ interface Profile {
   is_verified: boolean;
 }
 
+interface CustomUser {
+  id: string;
+  phone: string;
+  email: string;
+  full_name: string;
+  is_active: boolean;
+}
+
 interface AuthState {
   user: User | null;
+  customUser: CustomUser | null;
   profile: Profile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -26,13 +35,87 @@ interface AuthState {
   signOut: () => Promise<void>;
   loadUser: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ success: boolean; error?: string }>;
+  verifySession: () => Promise<boolean>;
+  checkAuth: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
+  customUser: null,
   profile: null,
   isLoading: true,
   isAuthenticated: false,
+
+  // Session doğrulama (WhatsApp için)
+  verifySession: async () => {
+    try {
+      const sessionToken = localStorage.getItem('session_token');
+      const userId = localStorage.getItem('user_id');
+
+      if (!sessionToken || !userId) {
+        return false;
+      }
+
+      const { data, error } = await supabase.functions.invoke('auth-verify', {
+        body: { session_token: sessionToken }
+      });
+
+      if (error || !data.success) {
+        localStorage.removeItem('session_token');
+        localStorage.removeItem('user_id');
+        set({
+          customUser: null,
+          isAuthenticated: false,
+        });
+        return false;
+      }
+
+      // Kullanıcı bilgilerini al
+      const { data: userData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (userData) {
+        set({
+          customUser: userData,
+          isAuthenticated: true,
+        });
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      return false;
+    }
+  },
+
+  // Auth kontrolü (hem Supabase hem custom session)
+  checkAuth: async () => {
+    try {
+      // Önce custom session kontrol et
+      const sessionToken = localStorage.getItem('session_token');
+      if (sessionToken) {
+        const isValid = await get().verifySession();
+        return isValid;
+      }
+
+      // Supabase auth kontrol et
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        set({
+          user,
+          isAuthenticated: true,
+        });
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      return false;
+    }
+  },
 
   signIn: async (email: string, password: string) => {
     try {
@@ -95,9 +178,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
+    // Custom session temizle
+    localStorage.removeItem('session_token');
+    localStorage.removeItem('user_id');
+    
+    // Supabase session temizle
     await authHelpers.signOut();
+    
     set({
       user: null,
+      customUser: null,
       profile: null,
       isAuthenticated: false,
     });
@@ -107,6 +197,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true });
       
+      // Önce custom session kontrol et
+      const sessionToken = localStorage.getItem('session_token');
+      const userId = localStorage.getItem('user_id');
+
+      if (sessionToken && userId) {
+        const isValid = await get().verifySession();
+        if (isValid) {
+          set({ isLoading: false });
+          return;
+        }
+      }
+
+      // Supabase auth kontrol et
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
@@ -126,6 +229,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } else {
         set({
           user: null,
+          customUser: null,
           profile: null,
           isAuthenticated: false,
           isLoading: false,
@@ -134,6 +238,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       set({
         user: null,
+        customUser: null,
         profile: null,
         isAuthenticated: false,
         isLoading: false,
@@ -174,6 +279,7 @@ supabase.auth.onAuthStateChange((event, session) => {
   } else if (event === 'SIGNED_OUT') {
     useAuthStore.setState({
       user: null,
+      customUser: null,
       profile: null,
       isAuthenticated: false,
     });

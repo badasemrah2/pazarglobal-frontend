@@ -7,12 +7,26 @@ interface FilterSidebarProps {
 }
 
 const categories = [
-  { id: 'elektronik', name: 'Elektronik', icon: 'ri-smartphone-line' },
-  { id: 'moda', name: 'Moda & Giyim', icon: 'ri-shirt-line' },
-  { id: 'ev', name: 'Ev & Yaşam', icon: 'ri-home-4-line' },
-  { id: 'arac', name: 'Araç & Vasıta', icon: 'ri-car-line' },
-  { id: 'spor', name: 'Spor & Outdoor', icon: 'ri-basketball-line' },
-  { id: 'kitap', name: 'Kitap & Hobi', icon: 'ri-book-line' },
+  { id: 'Elektronik', name: 'Elektronik', icon: 'ri-smartphone-line' },
+  { id: 'Otomotiv', name: 'Otomotiv', icon: 'ri-car-line' },
+  { id: 'Emlak', name: 'Emlak', icon: 'ri-home-4-line' },
+  { id: 'Mobilya & Dekorasyon', name: 'Mobilya & Dekorasyon', icon: 'ri-sofa-line' },
+  { id: 'Giyim & Aksesuar', name: 'Giyim & Aksesuar', icon: 'ri-shirt-line' },
+  { id: 'Gıda & İçecek', name: 'Gıda & İçecek', icon: 'ri-restaurant-line' },
+  { id: 'Kozmetik & Kişisel Bakım', name: 'Kozmetik & Kişisel Bakım', icon: 'ri-heart-pulse-line' },
+  { id: 'Kozmetik & Bakım', name: 'Kozmetik & Bakım', icon: 'ri-heart-pulse-line' },
+  { id: 'Kitap, Dergi & Müzik', name: 'Kitap, Dergi & Müzik', icon: 'ri-book-line' },
+  { id: 'Spor & Outdoor', name: 'Spor & Outdoor', icon: 'ri-basketball-line' },
+  { id: 'Anne, Bebek & Oyuncak', name: 'Anne, Bebek & Oyuncak', icon: 'ri-bear-smile-line' },
+  { id: 'Hayvan & Pet Shop', name: 'Hayvan & Pet Shop', icon: 'ri-footprint-line' },
+  { id: 'Yapı Market & Bahçe', name: 'Yapı Market & Bahçe', icon: 'ri-hammer-line' },
+  { id: 'Hobi & Oyun', name: 'Hobi & Oyun', icon: 'ri-gamepad-line' },
+  { id: 'Sanat & Zanaat', name: 'Sanat & Zanaat', icon: 'ri-palette-line' },
+  { id: 'İş & Sanayi', name: 'İş & Sanayi', icon: 'ri-building-line' },
+  { id: 'Eğitim & Kurs', name: 'Eğitim & Kurs', icon: 'ri-graduation-cap-line' },
+  { id: 'Etkinlik & Bilet', name: 'Etkinlik & Bilet', icon: 'ri-ticket-line' },
+  { id: 'Hizmetler', name: 'Hizmetler', icon: 'ri-service-line' },
+  { id: 'Diğer', name: 'Diğer', icon: 'ri-more-line' },
 ];
 
 const conditions = [

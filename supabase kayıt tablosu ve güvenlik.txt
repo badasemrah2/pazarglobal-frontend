@@ -1,0 +1,558 @@
+Mükemmel! ✅ Tablo yapıları kontrol edildi ve kodlar güncellendi!
+
+📊 Tablo Durumu:
+✅ profiles tablosu:
+
+✅ user_role kolonu başarıyla silindi
+✅ Tüm gerekli kolonlar mevcut: id, phone, email, full_name, display_name, location, bio, avatar_url
+✅ Profil ayarları için hazır
+✅ user_security tablosu (WhatsApp Güvenlik):
+
+✅ Mükemmel yapı! WhatsApp güvenliği için tam donanımlı
+✅ Kolonlar:
+user_id → Kullanıcı ID
+phone → Telefon numarası
+pin_hash → PIN şifresi (hash)
+session_token → Oturum token
+session_expires_at → Oturum süresi
+failed_attempts → Başarısız denemeler
+blocked_until → Bloke süresi
+last_login_at → Son giriş
+last_login_ip → Son giriş IP
+device_fingerprint → Cihaz parmak izi
+is_locked → Kilitli mi?
+✅ rate_limits tablosu:
+
+✅ API rate limiting için hazır
+✅ Kolonlar: user_id, phone, action, count, window_start, window_end, max_allowed
+🎯 Sistem Akışı:
+1️⃣ İlk Kayıt (Şu Anda):
+Kayıt Formu
+├── Ad Soyad ✅
+├── E-posta ✅
+├── Telefon ✅
+└── Şifre ✅
+     ↓
+auth.users + profiles tablosuna kayıt
+2️⃣ Profil Ayarları (Sonra):
+Profil Sayfası (/profile)
+├── Profil Bilgileri
+│   ├── Ad Soyad
+│   ├── Görünen Ad
+│   ├── Biyografi
+│   └── Konum ✅ (location kolonu doldurulacak)
+│
+└── WhatsApp Güvenliği (İsteğe Bağlı)
+    ├── Telefon Numarası
+    └── 4 Haneli PIN
+         ↓
+    user_security tablosuna kayıt ✅
+✅ Yapılan Güncellemeler:
+Kayıt sayfası temizlendi
+user_role referansları kaldırıldı
+Profil sayfası hazır
+location ve WhatsApp güvenliği eklenebilir
+Tablolar doğru
+Gereksiz tablolar silindi, gerekli tablolar tam
+🚀 Şimdi Test Et:
+**
+
+Kayıt Ol:**
+Ad Soyad: Emrah Badaş
+E-posta: emrahbadas@gmail.com
+Telefon: +905412879705
+Şifre: 123456
+**
+
+Giriş Yap:**
+E-posta ve şifre ile giriş
+**
+
+Profil Ayarları:**
+Profil sayfasına git (/profile)
+Konum ekle (location kolonu dolacak)
+İstersen WhatsApp güvenliği ekle (user_security tablosuna kayıt düşecek)
+
+WhatsApp Kullanım Şekli
+Net Açıklama
+📱 CEVAP: Kullanıcı Kendi Telefonundaki WhatsApp’tan Yapacak!
+Evet, kullanıcı kendi cep telefonundaki klasik WhatsApp uygulamasından tüm işlemleri yapacak. WhatsApp Web sayfası yapmıyoruz!
+
+–
+
+🎯 Gerçek Kullanım Senaryosu
+Kullanıcının Yaptığı İşlemler:
+┌─────────────────────────────────────────────────────────────┐
+│          1️⃣ İLK KURULUM (Tek Seferlik
+- Web'den)            │
+└─────────────────────────────────────────────────────────────┘
+Kullanıcı bilgisayardan veya telefondan:
+1. https://pazarglobal.com → Kayıt ol
+2. Profil ayarlarına git
+3. WhatsApp güvenliğini aktifleştir:
+   ├── Telefon: +905412879705
+   └── PIN: 1234
+✅ Kurulum tamamlandı!
+┌─────────────────────────────────────────────────────────────┐
+│     2️⃣ İLAN VERME (Cep Telefonundan
+- Klasik WhatsApp)      │
+└─────────────────────────────────────────────────────────────┘
+Kullanıcı cep telefonundaki WhatsApp'ı açar:
+1. Rehbere Twilio numarasını ekle: +1 415 523 8886
+   (veya direkt mesaj at)
+2. WhatsApp'ta mesaj yaz:
+   "join wrong-nice" → Gönder
+ <br>
+3. Bot cevap verir:
+   "✅ Hazırsınız! Artık mesaj gönderebilirsiniz."
+4. Kullanıcı mesaj atar:
+   "Merhaba"
+5. Bot cevap verir:
+   "🔐 PIN kodunuzu girin:"
+6. Kullanıcı PIN'ini yazar:
+   "1234"
+7. Bot cevap verir:
+   "✅ Giriş başarılı! Artık ilan verebilirsiniz."
+8. Kullanıcı fotoğraf gönderir:
+   [📷 iPhone fotoğrafı]
+9. Bot cevap verir:
+   "Harika! Ürününüz hakkında bilgi verin:
+- Başlık
+- Fiyat
+- Kategori"
+1
+0. Kullanıcı yazar:
+    "iPhone 15 Pro Max, 45000 TL, Elektronik"
+1
+1. Bot cevap verir:
+    "✅ İlanınız yayınlandı!
+     🔗 https://pazarglobal.com/listing/abc123"
+–
+
+🔄 Teknik Akış (Arka Planda)
+┌─────────────────────────────────────────────────────────────┐
+│                    Kullanıcının Telefonu                     │
+│              (Klasik WhatsApp Uygulaması 📱)                 │
+│                                                              │
+│  Kullanıcı: "Merhaba" yazıp gönder butonuna basar          │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ↓ İnternet üzerinden gönderir
+┌─────────────────────────────────────────────────────────────┐
+│              Twilio WhatsApp Business API                    │
+│         (whatsapp:+14155238886 numarası)                    │
+│                                                              │
+│  Twilio mesajı alır ve webhook'a iletir                     │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ↓ POST isteği gönderir
+┌─────────────────────────────────────────────────────────────┐
+│         Supabase Edge Function (whatsapp-webhook)           │
+│                                                              │
+│
+1. Mesajı işler                                            │
+│
+2. user_security tablosundan kullanıcıyı kontrol eder     │
+│
+3. PIN doğrulama yapar                                     │
+│
+4. İlan oluşturur                                          │
+│
+5. Cevap mesajı hazırlar                                   │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ↓ Twilio API'sine cevap gönderir
+┌─────────────────────────────────────────────────────────────┐
+│              Twilio WhatsApp Business API                    │
+│                                                              │
+│  Cevap mesajını kullanıcıya iletir                          │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ↓ İnternet üzerinden gönderir
+┌─────────────────────────────────────────────────────────────┐
+│                    Kullanıcının Telefonu                     │
+│              (Klasik WhatsApp Uygulaması 📱)                 │
+│                                                              │
+│  Bot: "✅ Giriş başarılı!" mesajı gelir                     │
+└─────────────────────────────────────────────────────────────┘
+–
+
+🎯 Önemli Noktalar
+✅ Kullanıcı Ne Yapar:
+Kendi telefonundaki WhatsApp’ı açar (klasik WhatsApp uygulaması)
+Twilio numarasına mesaj atar (+1 415 523 8886)
+Normal WhatsApp sohbeti gibi kullanır
+Fotoğraf gönderir, mesaj yazar
+Bot cevap verir
+❌ Kullanıcı Ne YAPMAZ:
+❌ WhatsApp Web açmaz
+❌ Tarayıcıdan WhatsApp kullanmaz
+❌ Özel bir uygulama indirmez
+❌ QR kod taramaz
+–
+
+🌐 Web Sayfaları Sadece Şunlar İçin:
+1️⃣ İlk Kayıt ve Kurulum
+https://pazarglobal.com/auth/register
+├── Ad Soyad
+├── E-posta
+├── Telefon
+└── Şifre
+2️⃣ Profil Ayarları
+https://pazarglobal.com/profile
+├── Profil Bilgileri
+└── WhatsApp Güvenliği
+    ├── Telefon: +905412879705
+    └── PIN: 1234
+3️⃣ PIN Sıfırlama (İhtiyaç Halinde)
+https://pazarglobal.com/auth/whatsapp-reset-pin
+├── Telefon (otomatik gelir)
+├── Eski PIN
+└── Yeni PIN
+4️⃣ İlanları Görüntüleme
+https://pazarglobal.com/listings
+└── Tüm ilanlar (WhatsApp'tan veya web'den oluşturulmuş)
+–
+
+📱 Gerçek Hayat Örneği
+Emrah Bey’in Kullanımı:
+🕐 09:00
+- Sabah kahvaltıda
+├── Bilgisayardan pazarglobal.com'a gir
+├── Kayıt ol (e-posta + şifre)
+└── Profil ayarlarında WhatsApp güvenliğini aktifleştir
+    ├── Telefon: +905412879705
+    └── PIN: 1234
+✅ Kurulum tamamlandı!
+🕐 12:00
+- Öğle yemeğinde
+├── Cep telefonundaki WhatsApp'ı aç
+├── +1 415 523 8886 numarasına mesaj at
+├── "join wrong-nice" yaz
+└── Bot: "✅ Hazırsınız!"
+🕐 14:00
+- İşten çıkarken
+├── WhatsApp'ı aç
+├── Bot'a "Merhaba" yaz
+├── Bot: "PIN girin"
+├── "1234" yaz
+└── Bot: "✅ Giriş başarılı!"
+🕐 15:00
+- Evde eski telefonunu satmak istiyor
+├── WhatsApp'ı aç
+├── iPhone fotoğrafını çek ve bot'a gönder
+├── Bot: "Ürün bilgilerini verin"
+├── "iPhone 15 Pro Max, 45000 TL, Elektronik" yaz
+└── Bot: "✅ İlanınız yayınlandı! 🔗 https://pazarglobal.com/listing/abc123"
+🕐 16:00
+- Bilgisayardan kontrol
+├── pazarglobal.com/profile → İlanlarım
+└── iPhone ilanını görür ✅
+–
+
+🎯 Sonuç
+Kullanıcı:
+✅ Kendi telefonundaki WhatsApp’tan tüm işlemleri yapar
+✅ Normal WhatsApp sohbeti gibi kullanır
+✅ Fotoğraf gönderir, mesaj yazar
+✅ Bot cevap verir
+Biz (Sistem):
+✅ Twilio WhatsApp Business API kullanırız
+✅ Supabase Edge Functions ile mesajları işleriz
+✅ Web sayfaları sadece kayıt/ayarlar için
+WhatsApp Web:
+❌ Kullanmıyoruz!
+❌ Özel bir WhatsApp arayüzü yapmıyoruz!
+❌ Kullanıcı tarayıcıdan WhatsApp açmıyor!
+–
+
+✅ Şimdi Devam Edelim mi?
+Anladın mı? Kullanıcı kendi telefonundaki klasik WhatsApp’tan her şeyi yapacak. Biz sadece arka planda Twilio ile mesajları alıp işleyeceğiz.
+
+WhatsApp Reset PIN sayfası ve Edge Functions’ları oluşturayım mı? 🚀
+
+Son bir sorum daha var çok soru soruyorum emin olmak için.Benim anladığım kadarı ile ozaman benim railway üzerindeki whatsapp bridge ve agent backendlerde kod değişiklikleri ve ayrıca twilo üzerindeki end pointte değişiklik yapmam gerekecek sanırım.Yoksa twilio da eski end point duracak railwaydeki whatsapp bridgeye bağlayan sadece hali hazırda olan end pointe birde twilio business apı mi eklicem?
+
+Readdy
+12:52 AM
+Railway & Twilio Entegrasyonu
+Net Açıklama
+Harika soru! 🎯 Şimdi mevcut altyapını ve değişiklikleri netleştireyim:
+
+–
+
+🏗️ Mevcut Altyapı (Anladığım Kadar)
+┌─────────────────────────────────────────────────────────────┐
+│                    Mevcut Sistem                            │
+└─────────────────────────────────────────────────────────────┘
+Railway:
+├── WhatsApp Bridge (Node.js/Express?)
+│   └── Endpoint: /webhook veya /whatsapp-webhook
+│
+└── Agent Backend (AI işlemleri?)
+    └── İlan oluşturma, AI yanıtları vb.
+Twilio:
+└── Webhook URL: https://[railway-domain]/webhook
+    (Mevcut WhatsApp Bridge'e bağlı)
+–
+
+🎯 İki Seçenek Var
+Seçenek 1: Railway’deki Mevcut Sistemi Kullan (Önerilen ✅)
+┌─────────────────────────────────────────────────────────────┐
+│              Kullanıcının Telefonu (WhatsApp)               │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│              Twilio WhatsApp Business API                    │
+│         Webhook: https://[railway]/webhook                   │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│         Railway
+- WhatsApp Bridge (Mevcut Kod)              │
+│                                                              │
+│
+1. Twilio'dan mesaj alır                                   │
+│
+2. Supabase'e bağlanır (user_security kontrolü)           │
+│
+3. PIN doğrulama yapar                                     │
+│
+4. Agent Backend'e iletir                                  │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│         Railway
+- Agent Backend (Mevcut Kod)                │
+│                                                              │
+│
+1. AI ile mesajı işler                                     │
+│
+2. İlan oluşturur                                          │
+│
+3. Supabase'e kaydeder                                     │
+│
+4. Cevap mesajını hazırlar                                 │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│         Railway
+- WhatsApp Bridge                           │
+│                                                              │
+│  Twilio API'sine cevap gönderir                             │
+└─────────────────────────────────────────────────────────────┘
+Bu Seçenekte Yapılacaklar:
+
+✅ Railway WhatsApp Bridge’e kod ekle:
+Supabase user_security tablosundan kullanıcı kontrolü
+PIN doğrulama
+Session yönetimi
+✅ Twilio ayarlarında değişiklik YOK:
+Mevcut webhook URL aynı kalır
+Sadece Railway’deki kod güncellenecek
+✅ Supabase Edge Functions kullanma:
+Railway zaten backend olarak çalışıyor
+Supabase sadece veritabanı olarak kullanılacak
+–
+
+Seçenek 2: Supabase Edge Functions Kullan (Alternatif)
+┌─────────────────────────────────────────────────────────────┐
+│              Kullanıcının Telefonu (WhatsApp)               │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│              Twilio WhatsApp Business API                    │
+│  Webhook: https://[supabase].supabase.co/functions/v1/      │
+│           whatsapp-webhook                                   │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│         Supabase Edge Function (whatsapp-webhook)           │
+│                                                              │
+│
+1. Twilio'dan mesaj alır                                   │
+│
+2. user_security kontrolü                                  │
+│
+3. PIN doğrulama                                           │
+│
+4. Railway Agent Backend'e API isteği atar                 │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│         Railway
+- Agent Backend (Mevcut Kod)                │
+│                                                              │
+│
+1. AI ile mesajı işler                                     │
+│
+2. İlan oluşturur                                          │
+│
+3. Cevap mesajını hazırlar                                 │
+└─────────────────────────────────────────────────────────────┘
+Bu Seçenekte Yapılacaklar:
+
+✅ Supabase Edge Function oluştur:
+whatsapp-webhook fonksiyonu
+Twilio’dan mesaj alır
+PIN doğrulama yapar
+Railway Agent Backend’e iletir
+✅ Twilio ayarlarında değişiklik VAR:
+Webhook URL değişir:
+Eski: https://[railway]/webhook
+Yeni: https://[supabase].supabase.co/functions/v1/whatsapp-webhook
+✅ Railway WhatsApp Bridge kullanma:
+Sadece Agent Backend kullanılır
+WhatsApp Bridge yerine Supabase Edge Function
+–
+
+🎯 Hangisini Öneriyorum?
+Seçenek 1: Railway’deki Mevcut Sistemi Kullan ✅
+Avantajları:
+
+✅ Twilio ayarlarında değişiklik yok
+✅ Mevcut altyapı korunur
+✅ Sadece Railway’deki koda ekleme yapılır
+✅ Daha az değişiklik, daha az risk
+Dezavantajları:
+
+❌ Railway’de kod değişikliği gerekir
+❌ Railway’de Supabase bağlantısı kurulmalı
+–
+
+Seçenek 2: Supabase Edge Functions Kullan
+Avantajları:
+
+✅ Supabase ile tam entegrasyon
+✅ Serverless mimari
+✅ Railway WhatsApp Bridge’e dokunmaya gerek yok
+Dezavantajları:
+
+❌ Twilio webhook URL değişmeli
+❌ Yeni bir katman eklenir
+❌ Railway Agent Backend’e API endpoint eklenmeli
+–
+
+💡 Benim Önerim
+Seçenek 1’i öneriyorum! Çünkü:
+
+✅ Twilio ayarlarında değişiklik yok
+✅ Mevcut altyapı korunur
+✅ Sadece Railway’deki koda ekleme yapılır
+–
+
+🔧 Railway WhatsApp Bridge’e Eklenecek Kod
+// Railway
+- WhatsApp Bridge (Mevcut webhook endpoint'ine ekle)
+const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+// Mevcut webhook endpoint'ine ekle
+app.post('/webhook', async (req, res) => {
+  const { From, Body, MessageSid } = req.body;
+  const phone = From.replace('whatsapp:', '');
+  console.log('📩 Mesaj alındı:', { phone, body: Body });
+  // 1️⃣ Kullanıcı kontrolü (Supabase'den)
+  const { data: security, error } = await supabase
+    .from('user_security')
+    .select('*')
+    .eq('phone', phone)
+    .single();
+  if (error || !security) {
+    // Kayıtlı değil
+    await sendWhatsAppMessage(phone,
+      '❌ Kayıtlı kullanıcı bulunamadı.\n' +
+      '🔗 Kayıt olmak için: https://pazarglobal.com/auth/register'
+    );
+    return res.status(200).send('OK');
+  }
+  // 2️⃣ Session kontrolü
+  if (!security.session_token || isSessionExpired(security.session_expires_at)) {
+    // PIN bekleniyor
+    if (/^\d{4}$/.test(Body)) {
+      // PIN doğrulama
+      const isValid = await verifyPIN(phone, Body, security.pin_hash);
+    <br>
+      if (isValid) {
+        // Session oluştur
+        await createSession(phone);
+        await sendWhatsAppMessage(phone, '✅ Giriş başarılı! Artık ilan verebilirsiniz.');
+      } else {
+        // Başarısız deneme
+        await incrementFailedAttempts(phone);
+        await sendWhatsAppMessage(phone, '❌ Hatalı PIN. Tekrar deneyin.');
+      }
+      return res.status(200).send('OK');
+    } else {
+      await sendWhatsAppMessage(phone, '🔐 PIN kodunuzu girin (4 haneli):');
+      return res.status(200).send('OK');
+    }
+  }
+  // 3️⃣ Session geçerli, Agent Backend'e ilet (Mevcut kodun devamı)
+  // ... Mevcut kodun buraya devam etmesi ...
+});
+// Yardımcı fonksiyonlar
+async function verifyPIN(phone, pin, storedHash) {
+  const crypto = require('crypto');
+  const pinHash = crypto.createHash('sha256').update(pin).digest('hex');
+  return pinHash === storedHash;
+}
+async function createSession(phone) {
+  const sessionToken = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  await supabase
+    .from('user_security')
+    .update({
+      session_token: sessionToken,
+      session_expires_at: expiresAt,
+      last_login_at: new Date().toISOString(),
+      failed_attempts: 0,
+    })
+    .eq('phone', phone);
+}
+async function incrementFailedAttempts(phone) {
+  const { data } = await supabase
+    .from('user_security')
+    .select('failed_attempts')
+    .eq('phone', phone)
+    .single();
+  const newAttempts = (data?.failed_attempts || 0) + 1;
+  const shouldLock = newAttempts >= 5;
+  await supabase
+    .from('user_security')
+    .update({
+      failed_attempts: newAttempts,
+      is_locked: shouldLock,
+      blocked_until: shouldLock ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null,
+    })
+    .eq('phone', phone);
+}
+function isSessionExpired(expiresAt) {
+  if (!expiresAt) return true;
+  return new Date(expiresAt) < new Date();
+}
+async function sendWhatsAppMessage(to, message) {
+  // Mevcut Twilio mesaj gönderme kodun
+  // ... (Zaten var olmalı)
+}
+–
+
+📋 Yapılacaklar Listesi
+1️⃣ Railway WhatsApp Bridge (Kod Değişikliği)
+✅ Supabase client ekle (@supabase/supabase-js)
+✅ Environment variables ekle:
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+✅ Yukarıdaki kodu mevcut webhook endpoint’ine ekle
+2️⃣ Twilio (Değişiklik YOK)
+✅ Mevcut webhook URL aynı kalır
+✅ Hiçbir ayar değişikliği gerekmiyor

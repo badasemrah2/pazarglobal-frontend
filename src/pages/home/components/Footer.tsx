@@ -6,16 +6,22 @@ export default function Footer() {
   };
 
   return (
-    <footer className="bg-gradient-to-br from-slate-900 via-gray-900 to-zinc-900 text-white pt-20 pb-8">
+    <footer className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white pt-20 pb-10">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
-          {/* Brand */}
-          <div>
+        <div className="grid md:grid-cols-4 gap-12 mb-16">
+          {/* Logo & Description */}
+          <div className="md:col-span-1">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center">
-                <i className="ri-sparkling-2-fill text-white text-2xl" />
+              <div className="w-12 h-12 flex items-center justify-center">
+                <img 
+                  src="/logo.svg" 
+                  alt="PazarGlobal Logo" 
+                  className="w-full h-full object-contain"
+                />
               </div>
-              <span className="text-2xl font-display font-bold">PazarGlobal</span>
+              <span className="text-2xl font-display font-bold">
+                Pazar<span className="text-cyan-400">Global</span>
+              </span>
             </div>
             <p className="text-gray-400 leading-relaxed mb-6">
               AI ile saniyeler içinde ilan ver. Türkiye'nin en akıllı ilan platformu.

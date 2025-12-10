@@ -37,6 +37,71 @@ const parseListings = (content: string): { cleanContent: string; listings: any[]
   return { cleanContent: content, listings: [] };
 };
 
+// Resim sıkıştırma fonksiyonu
+const compressImage = async (file: File, maxSizeMB: number = 0.9): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        // Maksimum boyut kontrolü (uzun kenar max 1920px)
+        const maxDimension = 1920;
+        if (width > height && width > maxDimension) {
+          height = (height * maxDimension) / width;
+          width = maxDimension;
+        } else if (height > maxDimension) {
+          width = (width * maxDimension) / height;
+          height = maxDimension;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        // Kalite ayarı ile sıkıştırma
+        let quality = 0.9;
+        const maxSizeBytes = maxSizeMB * 1024 * 1024;
+
+        const tryCompress = (q: number) => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Resim sıkıştırılamadı'));
+                return;
+              }
+
+              // Eğer boyut hala büyükse, kaliteyi düşür
+              if (blob.size > maxSizeBytes && q > 0.1) {
+                tryCompress(q - 0.1);
+              } else {
+                const compressedFile = new File([blob], file.name, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now(),
+                });
+                resolve(compressedFile);
+              }
+            },
+            'image/jpeg',
+            q
+          );
+        };
+
+        tryCompress(quality);
+      };
+      img.onerror = () => reject(new Error('Resim yüklenemedi'));
+    };
+    reader.onerror = () => reject(new Error('Dosya okunamadı'));
+  });
+};
+
 export default function ChatBox() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
@@ -54,6 +119,7 @@ export default function ChatBox() {
   const [isTyping, setIsTyping] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [displayCount, setDisplayCount] = useState(3);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentMessageRef = useRef<string>('');
@@ -68,6 +134,11 @@ export default function ChatBox() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const handleListingClick = (listingId: string) => {
+    navigate(`/listing/${listingId}`);
+    setIsOpen(false);
+  };
 
   const sendMessageToAgent = async (message: string) => {
     setIsTyping(true);
@@ -276,26 +347,122 @@ export default function ChatBox() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        type: 'user',
-        content: `📷 ${file.name} yüklendi`,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, newMessage]);
+      const fileSizeMB = file.size / (1024 * 1024);
 
-      // TODO: Implement file upload to agent backend
-      setIsTyping(true);
-      setTimeout(() => {
-        const aiResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          type: 'ai',
-          content: 'Dosya yükleme özelliği yakında aktif olacak!',
+      // Dosya tipi kontrolü
+      if (file.type.startsWith('image/')) {
+        // Resim sıkıştırma
+        if (fileSizeMB > 0.9) {
+          setIsTyping(true);
+          const userMessage: Message = {
+            id: Date.now().toString(),
+            type: 'user',
+            content: `📷 ${file.name} işleniyor...`,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, userMessage]);
+
+          compressImage(file, 0.9)
+            .then((compressedFile) => {
+              const compressedSizeMB = (compressedFile.size / (1024 * 1024)).toFixed(2);
+              const updatedMessage: Message = {
+                id: Date.now().toString(),
+                type: 'user',
+                content: `📷 ${file.name} yüklendi (${compressedSizeMB} MB)`,
+                timestamp: new Date(),
+              };
+              setMessages((prev) => {
+                const filtered = prev.filter(m => m.id !== userMessage.id);
+                return [...filtered, updatedMessage];
+              });
+
+              // TODO: Implement file upload to agent backend with compressed file
+              setTimeout(() => {
+                const aiResponse: Message = {
+                  id: (Date.now() + 1).toString(),
+                  type: 'ai',
+                  content: 'Resim başarıyla sıkıştırıldı! Dosya yükleme özelliği yakında aktif olacak.',
+                  timestamp: new Date(),
+                };
+                setMessages((prev) => [...prev, aiResponse]);
+                setIsTyping(false);
+              }, 1500);
+            })
+            .catch((error) => {
+              console.error('Resim sıkıştırma hatası:', error);
+              const errorMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                type: 'ai',
+                content: '⚠️ Resim işlenirken bir hata oluştu. Lütfen tekrar deneyin.',
+                timestamp: new Date(),
+              };
+              setMessages((prev) => [...prev, errorMessage]);
+              setIsTyping(false);
+            });
+        } else {
+          const newMessage: Message = {
+            id: Date.now().toString(),
+            type: 'user',
+            content: `📷 ${file.name} yüklendi (${fileSizeMB.toFixed(2)} MB)`,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, newMessage]);
+
+          // TODO: Implement file upload to agent backend
+          setIsTyping(true);
+          setTimeout(() => {
+            const aiResponse: Message = {
+              id: (Date.now() + 1).toString(),
+              type: 'ai',
+              content: 'Dosya yükleme özelliği yakında aktif olacak!',
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, aiResponse]);
+            setIsTyping(false);
+          }, 1500);
+        }
+      } else if (file.type.startsWith('video/')) {
+        // Video boyut kontrolü (max 5 MB)
+        if (fileSizeMB > 5) {
+          const errorMessage: Message = {
+            id: Date.now().toString(),
+            type: 'ai',
+            content: `⚠️ ${file.name} çok büyük! Videolar maksimum 5 MB olmalıdır. (Mevcut: ${fileSizeMB.toFixed(2)} MB)`,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, errorMessage]);
+          return;
+        }
+
+        const newMessage: Message = {
+          id: Date.now().toString(),
+          type: 'user',
+          content: `🎥 ${file.name} yüklendi (${fileSizeMB.toFixed(2)} MB)`,
           timestamp: new Date(),
         };
-        setMessages((prev) => [...prev, aiResponse]);
-        setIsTyping(false);
-      }, 1500);
+        setMessages((prev) => [...prev, newMessage]);
+
+        // TODO: Implement video upload to agent backend
+        setIsTyping(true);
+        setTimeout(() => {
+          const aiResponse: Message = {
+            id: (Date.now() + 1).toString(),
+            type: 'ai',
+            content: 'Video yükleme özelliği yakında aktif olacak!',
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, aiResponse]);
+          setIsTyping(false);
+        }, 1500);
+      } else {
+        const errorMessage: Message = {
+          id: Date.now().toString(),
+          type: 'ai',
+          content: '⚠️ Sadece resim ve video dosyaları yükleyebilirsiniz.',
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      }
     }
   };
 
@@ -335,75 +502,100 @@ export default function ChatBox() {
   ];
 
   const renderListingCard = (listing: any) => {
-    const images = listing.signed_images || [];
-    const mainImage = images[0] || 'https://readdy.ai/api/search-image?query=product%20placeholder%20simple%20white%20background&width=400&height=300&seq=placeholder&orientation=landscape';
+    const supabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
+    const imageUrls = listing.signed_images?.map((imagePath: string) => {
+      if (imagePath.startsWith('http')) {
+        return imagePath;
+      }
+      return `${supabaseUrl}/storage/v1/object/public/product-images/${imagePath}`;
+    }) || [];
+
+    const mainImage = imageUrls[0] || 'https://readdy.ai/api/search-image?query=product%20placeholder%20simple%20clean%20background&width=400&height=300&seq=placeholder&orientation=landscape';
 
     return (
-      <div 
+      <div
         key={listing.id}
-        onClick={() => navigate(`/listing/${listing.id}`)}
-        className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-all cursor-pointer group"
+        onClick={() => handleListingClick(listing.id)}
+        className="bg-white rounded-lg p-3 shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-100"
       >
-        {/* Main Image */}
-        <div className="relative h-40 bg-gray-100">
-          <img
-            src={mainImage}
-            alt={listing.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-          {listing.category && (
-            <span className="absolute top-2 left-2 px-2 py-1 bg-purple-600 text-white text-xs rounded-full">
-              {listing.category}
-            </span>
-          )}
-        </div>
-
-        {/* Image Gallery Thumbnails */}
-        {images.length > 1 && (
-          <div className="flex gap-1 p-2 bg-gray-50">
-            {images.slice(0, 3).map((img: string, idx: number) => (
-              <button
-                key={idx}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.open(img, '_blank');
-                }}
-                className="flex-1 h-16 rounded-lg overflow-hidden border-2 border-gray-200 hover:border-purple-600 transition-all"
-              >
-                <img
-                  src={img}
-                  alt={`${listing.title} ${idx + 1}`}
-                  className="w-full h-full object-cover"
-                />
-              </button>
-            ))}
+        <div className="flex items-start space-x-3">
+          {/* Ana Resim */}
+          <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
+            <img
+              src={mainImage}
+              alt={listing.title}
+              className="w-full h-full object-cover"
+            />
           </div>
-        )}
 
-        {/* Content */}
-        <div className="p-3">
-          <h4 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-purple-600 transition-colors">
-            {listing.title}
-          </h4>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-lg font-bold text-purple-600">
-              {typeof listing.price === 'number' 
-                ? listing.price.toLocaleString('tr-TR') 
-                : listing.price} ₺
-            </span>
-            {listing.condition && (
-              <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">
-                {listing.condition}
+          {/* İlan Bilgileri */}
+          <div className="flex-1 min-w-0">
+            <h4 className="text-sm font-semibold text-gray-900 mb-1 truncate">
+              {listing.title}
+            </h4>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-lg font-bold text-purple-600">
+                {listing.price?.toLocaleString('tr-TR')} ₺
+              </span>
+            </div>
+            <div className="flex items-center text-xs text-gray-500 mb-2">
+              <i className="ri-map-pin-line mr-1" />
+              {listing.location}
+            </div>
+            {listing.category && (
+              <span className="inline-block px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
+                {listing.category}
               </span>
             )}
           </div>
-          {listing.location && (
-            <div className="flex items-center text-xs text-gray-500">
-              <i className="ri-map-pin-line mr-1"></i>
-              {listing.location}
-            </div>
-          )}
         </div>
+
+        {/* Resim Galerisi */}
+        {imageUrls.length > 1 && (
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <div className="flex space-x-2 overflow-x-auto">
+              {imageUrls.slice(0, 3).map((img: string, idx: number) => (
+                <a
+                  key={idx}
+                  href={img}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-16 h-16 flex-shrink-0 rounded-md overflow-hidden bg-gray-100 hover:ring-2 hover:ring-purple-500 transition-all"
+                >
+                  <img
+                    src={img}
+                    alt={`${listing.title} - ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </a>
+              ))}
+              {imageUrls.length > 3 && (
+                <div className="w-16 h-16 flex-shrink-0 rounded-md bg-gray-100 flex items-center justify-center text-xs text-gray-600 font-medium">
+                  +{imageUrls.length - 3}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderListingCards = (listings: any[]) => {
+    return (
+      <div className="space-y-3 mt-2">
+        {listings.slice(0, displayCount).map((listing) => renderListingCard(listing))}
+
+        {/* Daha Fazla Göster Butonu */}
+        {listings.length > displayCount && (
+          <button
+            onClick={() => setDisplayCount(prev => prev + 3)}
+            className="w-full py-2 text-sm text-purple-600 hover:text-purple-700 font-medium transition-colors"
+          >
+            Daha fazla göster ({listings.length - displayCount} ilan daha)
+          </button>
+        )}
       </div>
     );
   };
@@ -590,64 +782,7 @@ export default function ChatBox() {
                     </div>
 
                     {/* Listing Cards */}
-                    {message.listings && message.listings.length > 0 && (
-                      <div className="space-y-2">
-                        {message.listings.slice(0, 3).map((listing, idx) => (
-                          <motion.div
-                            key={listing.id}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: idx * 0.1 }}
-                            className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-                          >
-                            <div className="flex">
-                              {/* Image */}
-                              {listing.signed_images && listing.signed_images[0] && (
-                                <div className="w-24 h-24 flex-shrink-0">
-                                  <img
-                                    src={listing.signed_images[0]}
-                                    alt={listing.title}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                              )}
-                              
-                              {/* Content */}
-                              <div className="flex-1 p-3 min-w-0">
-                                <h4 className="text-sm font-semibold text-gray-900 mb-1 truncate">
-                                  {listing.title}
-                                </h4>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-lg font-bold text-purple-600">
-                                    {listing.price?.toLocaleString('tr-TR')} ₺
-                                  </span>
-                                  <span className="text-xs text-gray-500 flex items-center">
-                                    <i className="ri-map-pin-line mr-1" />
-                                    {listing.location}
-                                  </span>
-                                </div>
-                                {listing.category && (
-                                  <span className="inline-block mt-2 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
-                                    {listing.category}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </motion.div>
-                        ))}
-                        
-                        {message.listings.length > 3 && (
-                          <div className="text-center">
-                            <button
-                              onClick={() => handleQuickAction('search')}
-                              className="text-sm text-purple-600 hover:text-purple-700 font-medium cursor-pointer"
-                            >
-                              +{message.listings.length - 3} ilan daha göster
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    {message.listings && message.listings.length > 0 && renderListingCards(message.listings)}
                   </div>
                 </motion.div>
               ))}
