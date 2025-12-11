@@ -45,8 +45,10 @@ export default function VoiceChat({
         
         if (finalTranscript) {
           setTranscript(finalTranscript);
-          // Correct the speech text
-          await correctSpeechText(finalTranscript);
+          // Quick brand correction (frontend only - no backend call)
+          const corrected = correctBrandNames(finalTranscript);
+          setCorrectedText(corrected);
+          onTranscriptReady(corrected);
           // Auto-stop after getting final result
           stopListening();
         }
@@ -126,43 +128,33 @@ export default function VoiceChat({
     setIsListening(false);
   };
 
-  const correctSpeechText = async (rawText: string) => {
-    setIsCorrecting(true);
-    try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://agent-backend-production-4ec8.up.railway.app';
-      
-      const response = await fetch(`${backendUrl}/correct-speech`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: rawText,
-          user_id: 'web-user'
-        }),
-      });
+  const correctBrandNames = (text: string): string => {
+    // Fast brand name correction (no backend call needed)
+    const brandMap: Record<string, string> = {
+      // Otomotiv
+      'sitroen': 'Citroen', 'citron': 'Citroen', 'stroen': 'Citroen',
+      'reno': 'Renault', 'porşe': 'Porsche', 'mersedes': 'Mercedes',
+      'bımvı': 'BMW', 'foksvagen': 'Volkswagen', 'toyta': 'Toyota',
+      'pejo': 'Peugeot', 'hundai': 'Hyundai',
+      // Elektronik
+      'ayfon': 'iPhone', 'aypad': 'iPad', 'samsıng': 'Samsung',
+      'huavey': 'Huawei', 'şiyomi': 'Xiaomi',
+      // Parfüm
+      'kelvin klein': 'Calvin Klein', 'calvin klein': 'Calvin Klein',
+      'selin dion': 'Celine Dion', 'selin diyor': 'Celine Dior',
+      'poison': 'Poison', 'poyzın': 'Poison',
+      'diyor': 'Dior', 'şanel': 'Chanel', 'lanköm': 'Lancôme',
+      'gucci': 'Gucci', 'versaçe': 'Versace', 'hugo boss': 'Hugo Boss',
+      'lakost': 'Lacoste', 'lakos': 'Lacoste', 'lagos': 'Lacoste'
+    };
 
-      if (!response.ok) {
-        throw new Error('Metin düzeltme başarısız');
-      }
-
-      const data = await response.json();
-      const corrected = data.corrected;
-      
-      setCorrectedText(corrected);
-      
-      // Send corrected text to parent (ChatBox)
-      onTranscriptReady(corrected);
-      
-    } catch (err) {
-      console.error('Speech correction error:', err);
-      setError('Metin düzeltme başarısız. Ham metin kullanılıyor.');
-      // Fallback to raw text
-      setCorrectedText(rawText);
-      onTranscriptReady(rawText);
-    } finally {
-      setIsCorrecting(false);
+    let corrected = text;
+    for (const [wrong, correct] of Object.entries(brandMap)) {
+      const regex = new RegExp(`\\b${wrong}\\b`, 'gi');
+      corrected = corrected.replace(regex, correct);
     }
+    
+    return corrected;
   };
 
   const speak = useCallback((text: string) => {
