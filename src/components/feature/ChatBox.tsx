@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { createClient } from '@supabase/supabase-js';
 import { useAuthStore } from '../../stores/authStore';
 import VoiceChat from './VoiceChat';
 import VoiceSelector from './VoiceSelector';
@@ -14,6 +15,12 @@ type Message = {
 };
 
 type Tab = 'general' | 'listing' | 'support';
+
+// Supabase client (public anon key for uploads to public bucket)
+const supabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const PUBLIC_BUCKET = 'product-images';
 
 // Generate or retrieve unique user ID
 const getUserId = (): string => {
@@ -133,6 +140,23 @@ export default function ChatBox() {
 
   const AGENT_BACKEND_URL = 'https://pazarglobal-agent-backend-production-4ec8.up.railway.app';
 
+  const resolveUserIdPath = (id: string) => id?.replace(/[^a-zA-Z0-9_-]/g, '') || 'web-user';
+
+  const uploadImageToSupabase = async (file: File, resolvedUserId: string) => {
+    const sanitizedUser = resolveUserIdPath(resolvedUserId);
+    const filename = `${crypto.randomUUID?.() || Date.now()}-${file.name.replace(/\s+/g, '-')}`;
+    const storagePath = `${sanitizedUser}/${filename}`;
+    const { error } = await supabase.storage.from(PUBLIC_BUCKET).upload(storagePath, file, {
+      contentType: file.type,
+      upsert: false,
+    });
+    if (error) {
+      throw new Error(error.message);
+    }
+    const publicUrl = `${supabaseUrl}/storage/v1/object/public/${PUBLIC_BUCKET}/${storagePath}`;
+    return { storagePath, publicUrl };
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -151,7 +175,7 @@ export default function ChatBox() {
     setIsOpen(false);
   };
 
-  const sendMessageToAgent = async (message: string) => {
+  const sendMessageToAgent = async (message: string, options?: { mediaPaths?: string[]; mediaType?: string }) => {
     setIsTyping(true);
     setIsConnecting(true);
     setError(null);
@@ -186,6 +210,8 @@ export default function ChatBox() {
           user_id: resolvedUserId,
           conversation_history: conversationHistory.current,
           user_context: userContext,
+          media_paths: options?.mediaPaths,
+          media_type: options?.mediaType,
         }),
       });
 
@@ -380,6 +406,48 @@ export default function ChatBox() {
 
       // Dosya tipi kontrolü
       if (file.type.startsWith('image/')) {
+        const handleUpload = async (uploadFile: File) => {
+          const resolvedUserId = customUser?.id || user?.id || localStorage.getItem('user_id') || getUserId();
+          try {
+            setIsTyping(true);
+            const { storagePath, publicUrl } = await uploadImageToSupabase(uploadFile, resolvedUserId);
+
+            const uploadedMessage: Message = {
+              id: Date.now().toString(),
+              type: 'user',
+              content: `📷 ${uploadFile.name} yüklendi (${(uploadFile.size / (1024 * 1024)).toFixed(2)} MB)`,
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, uploadedMessage]);
+
+            // Send note to agent with media_paths
+            sendMessageToAgent(`Fotoğraf yükledim: ${uploadFile.name}`, {
+              mediaPaths: [storagePath],
+              mediaType: uploadFile.type,
+            });
+
+            // Ek bilgilendirme mesajı (optional)
+            const infoMessage: Message = {
+              id: (Date.now() + 2).toString(),
+              type: 'ai',
+              content: '📥 Görsel yüklendi, ürün analizi başlatılıyor...',
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, infoMessage]);
+          } catch (uploadErr: any) {
+            console.error('Upload error:', uploadErr);
+            const errorMessage: Message = {
+              id: (Date.now() + 3).toString(),
+              type: 'ai',
+              content: `⚠️ Görsel yüklenemedi: ${uploadErr?.message || 'Bilinmeyen hata'}`,
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, errorMessage]);
+          } finally {
+            setIsTyping(false);
+          }
+        };
+
         // Resim sıkıştırma
         if (fileSizeMB > 0.9) {
           setIsTyping(true);
@@ -405,17 +473,7 @@ export default function ChatBox() {
                 return [...filtered, updatedMessage];
               });
 
-              // TODO: Implement file upload to agent backend with compressed file
-              setTimeout(() => {
-                const aiResponse: Message = {
-                  id: (Date.now() + 1).toString(),
-                  type: 'ai',
-                  content: 'Resim başarıyla sıkıştırıldı! Dosya yükleme özelliği yakında aktif olacak.',
-                  timestamp: new Date(),
-                };
-                setMessages((prev) => [...prev, aiResponse]);
-                setIsTyping(false);
-              }, 1500);
+              handleUpload(compressedFile);
             })
             .catch((error) => {
               console.error('Resim sıkıştırma hatası:', error);
@@ -429,26 +487,7 @@ export default function ChatBox() {
               setIsTyping(false);
             });
         } else {
-          const newMessage: Message = {
-            id: Date.now().toString(),
-            type: 'user',
-            content: `📷 ${file.name} yüklendi (${fileSizeMB.toFixed(2)} MB)`,
-            timestamp: new Date(),
-          };
-          setMessages((prev) => [...prev, newMessage]);
-
-          // TODO: Implement file upload to agent backend
-          setIsTyping(true);
-          setTimeout(() => {
-            const aiResponse: Message = {
-              id: (Date.now() + 1).toString(),
-              type: 'ai',
-              content: 'Dosya yükleme özelliği yakında aktif olacak!',
-              timestamp: new Date(),
-            };
-            setMessages((prev) => [...prev, aiResponse]);
-            setIsTyping(false);
-          }, 1500);
+          handleUpload(file);
         }
       } else if (file.type.startsWith('video/')) {
         // Video boyut kontrolü (max 5 MB)
