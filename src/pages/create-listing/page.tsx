@@ -459,14 +459,18 @@ export default function CreateListingPage() {
     try {
       console.log('AI isteği gönderiliyor...', {
         category: formData.category,
-        title: formData.title
+        title: formData.title,
+        description: formData.description,
+        condition: formData.condition
       });
       
-      const { data, error } = await supabase.functions.invoke('ai-assistant', {
+      const { data, error } = await supabase.functions.invoke('ai-assistant-cached', {
         body: {
           action: 'suggest_price',
           category: formData.category,
-          title: formData.title
+          title: formData.title,
+          description: formData.description,
+          condition: formData.condition || 'Az Kullanılmış'
         }
       });
 
@@ -478,13 +482,19 @@ export default function CreateListingPage() {
       }
 
       if (data?.success) {
-        // Fiyat aralığından ortalama al
-        const priceText = data.result.replace(/[^\d-]/g, '');
-        const prices = priceText.split('-').map((p: string) => parseInt(p.trim()));
-        const avgPrice = prices.length === 2 ? Math.floor((prices[0] + prices[1]) / 2) : prices[0];
+        // Yeni cache-aware response format
+        const suggestedPrice = data.price || 0;
+        const isCached = data.cached || false;
+        const confidence = data.confidence || 0;
+        const resultText = data.result || '';
         
-        handleInputChange('price', avgPrice.toString());
-        alert(`💰 AI Fiyat Önerisi: ${data.result}\n\nOrtalama fiyat forma eklendi.`);
+        handleInputChange('price', suggestedPrice.toString());
+        
+        // Kullanıcıya bilgi ver
+        const cacheInfo = isCached ? '⚡ Cache\'den alındı (anında)' : '🔍 Güncel piyasa verisi';
+        const confidenceInfo = confidence > 0 ? `\n🎯 Güvenilirlik: ${(confidence * 100).toFixed(0)}%` : '';
+        
+        alert(`💰 AI Fiyat Önerisi: ${resultText}\n\n${cacheInfo}${confidenceInfo}\n\nÖnerilen fiyat forma eklendi: ${suggestedPrice.toLocaleString('tr-TR')} ₺`);
       } else {
         throw new Error(data?.error || 'AI yanıt veremedi');
       }
@@ -947,6 +957,7 @@ export default function CreateListingPage() {
                       type="button"
                       onClick={() => removeImage(index)}
                       className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                      aria-label={`Resmi kaldır ${index + 1}`}
                     >
                       <i className="ri-close-line text-sm" />
                     </button>
@@ -981,6 +992,8 @@ export default function CreateListingPage() {
                 multiple
                 onChange={handleImageSelect}
                 className="hidden"
+                title="Medya dosyaları seç"
+                aria-label="Resim veya video yükle"
               />
               <p className="text-xs text-gray-500 mt-2">
                 📷 Resimler: Max 0.9 MB (otomatik sıkıştırılır) • 🎥 Videolar: Max 5 MB • En fazla 5 dosya
@@ -999,6 +1012,8 @@ export default function CreateListingPage() {
                   className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer text-sm ${
                     errors.category ? 'border-red-500' : 'border-gray-300'
                   }`}
+                  aria-label="İlan kategorisi seç"
+                  title="Kategori seçin"
                 >
                   <option value="">Kategori Seçin</option>
                   {categories.map(cat => (
@@ -1018,6 +1033,8 @@ export default function CreateListingPage() {
                   className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer text-sm ${
                     errors.condition ? 'border-red-500' : 'border-gray-300'
                   }`}
+                  aria-label="Ürün durumu seç"
+                  title="Durum seçin"
                 >
                   <option value="">Durum Seçin</option>
                   {conditions.map(cond => (
@@ -1083,6 +1100,7 @@ export default function CreateListingPage() {
                         type="button"
                         onClick={() => setShowTitleSuggestions(false)}
                         className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                        aria-label="Önerileri kapat"
                       >
                         <i className="ri-close-line" />
                       </button>
