@@ -1,0 +1,32 @@
+{
+  "deno.enable": true,
+  "deno.enablePaths": [
+    "supabase/functions"
+  ],
+  "deno.lint": true,
+  "deno.unstable": true,
+  "[typescript]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "typescript.validate.enable": true,
+  "files.associations": {
+    "*.md": "markdown"
+  },
+  "markdown.validate.enabled": false,
+  "markdown.validate.ignoredLinks": ["**"],
+  "stylelint.enable": false,
+  "eslint.rules.customizations": [
+    { "rule": "no-inline-styles", "severity": "off" }
+  ],
+  "files.exclude": {
+    "**/*.md": false
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/out": true,
+    "**/.venv": true
+  }
+}
