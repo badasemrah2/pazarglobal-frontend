@@ -367,6 +367,17 @@ export default function ChatBox() {
                 ]).filter(p => !blockedPaths.includes(p));
 
                 pendingMediaPathsRef.current = nextPending;
+                
+                // Show user-friendly feedback about blocked photos (don't count them as uploaded)
+                if (blocked.length > 0) {
+                  const blockedMessage: Message = {
+                    id: `${Date.now()}_blocked`,
+                    type: 'ai',
+                    content: `⚠️ ${blocked.length} fotoğraf güvenlik kontrolünden geçemedi ve elendi. ${safe.length} fotoğraf güvenli olarak kaydedildi.`,
+                    timestamp: new Date(),
+                  };
+                  setMessages((prev) => [...prev, blockedMessage]);
+                }
 
                 // Also inject a hidden system note into conversation history so backend agents can use images
                 // without re-sending media_paths (avoids repeated vision safety checks).
@@ -479,13 +490,25 @@ export default function ChatBox() {
       return;
     }
 
+    // LIMIT: Maximum 5 photos per upload (user-friendly limit)
+    if (imageFiles.length > 5) {
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        type: 'ai',
+        content: `⚠️ Tek seferde en fazla 5 fotoğraf yükleyebilirsiniz. İlk 5 tanesi yüklenecek.`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    }
+    const limitedFiles = imageFiles.slice(0, 5);
+
     const run = async () => {
       const resolvedUserId = customUser?.id || user?.id || localStorage.getItem('user_id') || getUserId();
       const uploadedPaths: string[] = [];
 
       setIsTyping(true);
       try {
-        for (const file of imageFiles) {
+        for (const file of limitedFiles) {
           try {
             const fileSizeMB = file.size / (1024 * 1024);
             let uploadFile = file;
