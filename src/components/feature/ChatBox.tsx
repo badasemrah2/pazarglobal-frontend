@@ -5,6 +5,15 @@ import { createClient } from '@supabase/supabase-js';
 import { useAuthStore } from '../../stores/authStore';
 import VoiceChat from './VoiceChat';
 import VoiceSelector from './VoiceSelector';
+import ReactMarkdown from 'react-markdown';
+import { format, formatDistanceToNow } from 'date-fns';
+import { tr } from 'date-fns/locale';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Pagination, Navigation } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/pagination';
+import 'swiper/css/navigation';
+import './ChatBox.css';
 
 type Message = {
   id: string;
@@ -17,8 +26,8 @@ type Message = {
 type Tab = 'general' | 'listing' | 'support';
 
 // Supabase client (public anon key for uploads to public bucket)
-const supabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 const PUBLIC_BUCKET = 'product-images';
 
@@ -131,6 +140,7 @@ export default function ChatBox() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [displayCount, setDisplayCount] = useState(3);
+  const [detailListing, setDetailListing] = useState<any>(null);
   const [voiceMode, setVoiceMode] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -139,55 +149,109 @@ export default function ChatBox() {
   const conversationHistory = useRef<Array<{ role: string; content: string }>>([]);
   const pendingMediaPathsRef = useRef<string[]>([]);
 
-  const AGENT_BACKEND_URL = 'https://pazarglobal-agent-backend-production-4ec8.up.railway.app';
-
-  const dedupePaths = (paths: string[]) => {
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const p of paths) {
-      const sp = (p || '').toString().trim();
-      if (!sp) continue;
-      if (seen.has(sp)) continue;
-      seen.add(sp);
-      out.push(sp);
+  const ensureWebhookUrl = () => {
+    if (!WEBCHAT_WEBHOOK_URL) {
+      throw new Error('VITE_WEBCHAT_WEBHOOK_URL tanımlı değil. n8n webchat webhook adresini .env dosyanıza ekleyin.');
     }
-    return out;
+
+    // Basic validation: must contain "/webhook/" and at least one path segment
+    try {
+      const u = new URL(WEBCHAT_WEBHOOK_URL);
+      if (!u.pathname.includes('/webhook/') && !u.pathname.includes('/webhook')) {
+        console.warn('VITE_WEBCHAT_WEBHOOK_URL görünümü beklenen formatta değil:', WEBCHAT_WEBHOOK_URL);
+      }
+      return WEBCHAT_WEBHOOK_URL;
+    } catch (e) {
+      throw new Error('VITE_WEBCHAT_WEBHOOK_URL geçersiz bir URL olarak görünüyor: ' + WEBCHAT_WEBHOOK_URL);
+    }
   };
 
-  const resolveUserIdPath = (id: string) => id?.replace(/[^a-zA-Z0-9_-]/g, '') || 'web-user';
+  const handleMediaMetaUpdate = (payload: any) => {
+    const safe = Array.isArray(payload?.safe_media_paths) ? (payload.safe_media_paths as string[]) : [];
+    const blocked = Array.isArray(payload?.blocked_media_paths) ? payload.blocked_media_paths : [];
+    const blockedPaths = blocked
+      .map((entry: any) => (entry && typeof entry === 'object' ? entry.path : null))
+      .filter(Boolean) as string[];
 
-  const uploadImageToSupabase = async (file: File, resolvedUserId: string) => {
-    const sanitizedUser = resolveUserIdPath(resolvedUserId);
-    const filename = `${crypto.randomUUID?.() || Date.now()}-${file.name.replace(/\s+/g, '-')}`;
-    const storagePath = `${sanitizedUser}/${filename}`;
-    const { error } = await supabase.storage.from(PUBLIC_BUCKET).upload(storagePath, file, {
-      contentType: file.type,
-      upsert: false,
+    const nextPending = dedupePaths([
+      ...(pendingMediaPathsRef.current || []),
+      ...safe,
+    ]).filter((p) => !blockedPaths.includes(p));
+
+    pendingMediaPathsRef.current = nextPending;
+
+    if (blocked.length > 0) {
+      const blockedMessage: Message = {
+        id: `${Date.now()}_blocked`,
+        type: 'ai',
+        content: `⚠️ ${blocked.length} fotoğraf güvenlik kontrolünden geçemedi ve elendi. ${safe.length} fotoğraf güvenli olarak kaydedildi.`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, blockedMessage]);
+    }
+
+    const mediaNote = `[SYSTEM_MEDIA_NOTE] MEDIA_PATHS=${JSON.stringify(nextPending)}`;
+    const last = conversationHistory.current[conversationHistory.current.length - 1];
+    if (!last || last.role !== 'assistant' || last.content !== mediaNote) {
+      conversationHistory.current.push({ role: 'assistant', content: mediaNote });
+    }
+  };
+
+  const commitAssistantResponse = (rawContent: string, aiMessageId?: string, forcedListings?: any[]) => {
+    const { cleanContent, listings } = parseListings(rawContent || '');
+    const resolvedListings = forcedListings && forcedListings.length > 0 ? forcedListings : listings;
+
+    if (!cleanContent && (!resolvedListings || resolvedListings.length === 0)) {
+      return;
+    }
+
+    if (cleanContent) {
+      conversationHistory.current.push({
+        role: 'assistant',
+        content: cleanContent,
+      });
+
+      const lc = cleanContent.toLowerCase();
+      if (lc.includes('ilan yayınlandı') || lc.includes('✅ ilan yayınlandı')) {
+        pendingMediaPathsRef.current = [];
+      }
+      if (lc.includes('iptal edildi') || lc.startsWith('iptal') || lc.includes('işlemi iptal')) {
+        pendingMediaPathsRef.current = [];
+      }
+    }
+
+    setMessages((prev) => {
+      const updated = [...prev];
+      if (aiMessageId) {
+        const existingIndex = updated.findIndex((m) => m.id === aiMessageId);
+        if (existingIndex >= 0) {
+          updated[existingIndex] = {
+            ...updated[existingIndex],
+            content: cleanContent,
+            listings: resolvedListings && resolvedListings.length > 0 ? resolvedListings : undefined,
+          };
+          return updated;
+        }
+      }
+
+      return [
+        ...updated,
+        {
+          id: aiMessageId || `${Date.now()}`,
+          type: 'ai',
+          content: cleanContent,
+          timestamp: new Date(),
+          listings: resolvedListings && resolvedListings.length > 0 ? resolvedListings : undefined,
+        },
+      ];
     });
-    if (error) {
-      throw new Error(error.message);
+
+    if (voiceMode && (window as any).speakResponse && cleanContent) {
+      setTimeout(() => (window as any).speakResponse(cleanContent), 150);
     }
-    const publicUrl = `${supabaseUrl}/storage/v1/object/public/${PUBLIC_BUCKET}/${storagePath}`;
-    return { storagePath, publicUrl };
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Try to hydrate auth context so agent backend can map the visitor to a real account
-  useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
-
-  const handleListingClick = (listingId: string) => {
-    navigate(`/listing/${listingId}`);
-    setIsOpen(false);
-  };
+  const WEBCHAT_WEBHOOK_URL = import.meta.env.VITE_WEBCHAT_WEBHOOK_URL?.trim();
 
   const sendMessageToAgent = async (message: string, options?: { mediaPaths?: string[]; mediaType?: string }) => {
     setIsTyping(true);
@@ -207,215 +271,240 @@ export default function ChatBox() {
       source: 'web-chat',
     };
 
-    // Add user message to conversation history
     conversationHistory.current.push({
       role: 'user',
-      content: message
+      content: message,
     });
 
-    try {
-      // Only send media_paths on the upload message itself.
-      // For subsequent messages, we persist safe media via a hidden [SYSTEM_MEDIA_NOTE] in conversationHistory.
-      const media_paths = dedupePaths(options?.mediaPaths || []);
+    const mediaPaths = dedupePaths(options?.mediaPaths || []);
 
-      // DEBUG: Log what we're sending to backend
-      if (media_paths.length > 0) {
-        console.log('🖼️  Sending media_paths to backend:', media_paths);
-        console.log('🖼️  Sending media_type to backend:', options?.mediaType);
+    if (mediaPaths.length > 0) {
+      console.log('🖼️  Sending media_paths to n8n webhook:', mediaPaths);
+      console.log('🖼️  Sending media_type to n8n webhook:', options?.mediaType);
+    }
+
+    const payload = {
+      sessionId: resolvedUserId,
+      message,
+      source: 'pazarglobal-webchat',
+      mediaPaths: mediaPaths.length > 0 ? mediaPaths : undefined,
+      media_paths: mediaPaths.length > 0 ? mediaPaths : undefined,
+      mediaType: options?.mediaType,
+      media_type: options?.mediaType,
+      metadata: {
+        userContext,
+        mediaPaths: mediaPaths.length > 0 ? mediaPaths : undefined,
+        mediaType: options?.mediaType,
+        conversationHistory: conversationHistory.current,
+        pendingMedia: pendingMediaPathsRef.current,
+      },
+    };
+
+    const upsertStreamingMessage = (aiMessageId: string) => {
+      setMessages((prev) => {
+        const existingIndex = prev.findIndex((m) => m.id === aiMessageId);
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = {
+            ...updated[existingIndex],
+            content: currentMessageRef.current,
+          };
+          return updated;
+        }
+        return [
+          ...prev,
+          {
+            id: aiMessageId,
+            type: 'ai',
+            content: currentMessageRef.current,
+            timestamp: new Date(),
+          },
+        ];
+      });
+    };
+
+    const extractAssistantFromJson = (data: any) => {
+      if (!data) {
+        return { text: '', listings: undefined as any[] | undefined };
       }
-      
-      const response = await fetch(`${AGENT_BACKEND_URL}/web-chat`, {
+      if (typeof data.message === 'string') {
+        return { text: data.message, listings: data.listings };
+      }
+      if (typeof data.response === 'string') {
+        return { text: data.response, listings: data.listings };
+      }
+      if (typeof data.text === 'string') {
+        return { text: data.text, listings: data.listings };
+      }
+      if (Array.isArray(data.messages)) {
+        const assistant = data.messages.find((m: any) => m.role === 'assistant');
+        if (assistant?.content) {
+          return { text: assistant.content, listings: assistant.listings || data.listings };
+        }
+      }
+      if (data.data?.message) {
+        return { text: data.data.message, listings: data.data.listings };
+      }
+      return { text: '', listings: undefined };
+    };
+
+    try {
+      const webhookUrl = ensureWebhookUrl();
+      console.debug('Posting to n8n webhook:', webhookUrl, 'payload:', { sessionId: resolvedUserId, message, mediaPaths });
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
         },
-        body: JSON.stringify({
-          message,
-          user_id: resolvedUserId,
-          conversation_history: conversationHistory.current,
-          user_context: userContext,
-          media_paths: media_paths.length > 0 ? media_paths : undefined,
-          media_type: options?.mediaType,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Backend error response:', errorText);
-        throw new Error(`Backend hatası (${response.status}): ${errorText || 'Bilinmeyen hata'}`);
+        let errorText = '';
+        try {
+          errorText = await response.text();
+        } catch (e) {
+          errorText = '<failed to read response body>';
+        }
+        console.error('n8n webhook non-OK response', { status: response.status, statusText: response.statusText, headers: Object.fromEntries(response.headers.entries()), body: errorText });
+        throw new Error(`n8n webhook hatası (${response.status}): ${errorText || response.statusText || 'Bilinmeyen hata'}`);
       }
 
       setIsConnecting(false);
 
-      // Check if response is SSE
-      const contentType = response.headers.get('content-type');
-      if (!contentType?.includes('text/event-stream')) {
-        console.error('Invalid content type:', contentType);
-        throw new Error('Backend yanlış format döndü. SSE bekleniyor.');
-      }
+      const contentType = response.headers.get('content-type') || '';
 
-      // Read SSE stream
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) {
-        throw new Error('Response body okunamıyor');
-      }
-
-      let aiMessageId = Date.now().toString();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        
-        if (done) {
-          // Parse listings from final message
-          const { cleanContent, listings } = parseListings(currentMessageRef.current);
-          
-          // Add AI response to conversation history
-          if (cleanContent) {
-            conversationHistory.current.push({
-              role: 'assistant',
-              content: cleanContent
-            });
-          }
-
-          // Heuristic: after publish/cancel flows, clear pending images
-          if (cleanContent) {
-            const lc = cleanContent.toLowerCase();
-            if (lc.includes('ilan yayınlandı') || lc.includes('✅ ilan yayınlandı')) {
-              pendingMediaPathsRef.current = [];
-            }
-            if (lc.includes('iptal edildi') || lc.startsWith('iptal') || lc.includes('işlemi iptal')) {
-              pendingMediaPathsRef.current = [];
-            }
-          }
-
-          // Update message with parsed data
-          setMessages((prev) => {
-            const updated = [...prev];
-            const index = updated.findIndex(m => m.id === aiMessageId);
-            if (index >= 0) {
-              updated[index] = {
-                ...updated[index],
-                content: cleanContent,
-                listings: listings.length > 0 ? listings : undefined,
-              };
-            }
-            return updated;
-          });
-
-          setIsTyping(false);
-
-          // Immediately speak response in voice mode (no delay)
-          if (voiceMode && (window as any).speakResponse && cleanContent) {
-            console.log('🔊 Speaking response immediately after streaming...');
-            setTimeout(() => (window as any).speakResponse(cleanContent), 100);
-          }
-
-          break;
+      if (contentType.includes('text/event-stream')) {
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new Error('n8n SSE yanıtı okunamadı.');
         }
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        const decoder = new TextDecoder();
+        const aiMessageId = Date.now().toString();
+        let buffer = '';
+        let streamClosed = false;
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
+        const finalizeStream = (listingsFromPayload?: any[]) => {
+          if (streamClosed) return;
+          streamClosed = true;
+          commitAssistantResponse(currentMessageRef.current, aiMessageId, listingsFromPayload);
+          setIsTyping(false);
+        };
+
+        while (true) {
+          const { done, value } = await reader.read();
+
+          if (done) {
+            finalizeStream();
+            break;
+          }
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const rawLine of lines) {
+            const line = rawLine.trim();
+            if (!line || !line.startsWith('data:')) {
+              continue;
+            }
+
+            const payloadLine = line.slice(5).trim();
+            if (!payloadLine) {
+              continue;
+            }
+
+            if (payloadLine === '[DONE]') {
+              finalizeStream();
+              continue;
+            }
+
             try {
-              const data = JSON.parse(line.slice(6));
-              
-              if (data.type === 'text' && data.content) {
-                currentMessageRef.current += data.content;
-                
-                // Update or create AI message
-                setMessages((prev) => {
-                  const existingIndex = prev.findIndex(m => m.id === aiMessageId);
-                  if (existingIndex >= 0) {
-                    const updated = [...prev];
-                    updated[existingIndex] = {
-                      ...updated[existingIndex],
-                      content: currentMessageRef.current,
-                    };
-                    return updated;
-                  } else {
-                    return [
-                      ...prev,
-                      {
-                        id: aiMessageId,
-                        type: 'ai',
-                        content: currentMessageRef.current,
-                        timestamp: new Date(),
-                      },
-                    ];
-                  }
-                });
-              } else if (data.type === 'done') {
-                // Streaming complete
-                setIsTyping(false);
-              } else if (data.type === 'meta') {
-                // Persist safe images so user doesn't need to repeat "az önceki fotoğraf"
-                const safe = Array.isArray(data.safe_media_paths) ? (data.safe_media_paths as string[]) : [];
-                const blocked = Array.isArray(data.blocked_media_paths) ? data.blocked_media_paths : [];
-                const blockedPaths = blocked
-                  .map((b: any) => (b && typeof b === 'object' ? b.path : null))
-                  .filter(Boolean) as string[];
+              const data = JSON.parse(payloadLine);
 
-                const nextPending = dedupePaths([
-                  ...(pendingMediaPathsRef.current || []),
-                  ...safe,
-                ]).filter(p => !blockedPaths.includes(p));
+              if (data.type === 'meta' || data.event === 'meta') {
+                handleMediaMetaUpdate(data);
+                continue;
+              }
 
-                pendingMediaPathsRef.current = nextPending;
-                
-                // Show user-friendly feedback about blocked photos (don't count them as uploaded)
-                if (blocked.length > 0) {
-                  const blockedMessage: Message = {
-                    id: `${Date.now()}_blocked`,
-                    type: 'ai',
-                    content: `⚠️ ${blocked.length} fotoğraf güvenlik kontrolünden geçemedi ve elendi. ${safe.length} fotoğraf güvenli olarak kaydedildi.`,
-                    timestamp: new Date(),
-                  };
-                  setMessages((prev) => [...prev, blockedMessage]);
+              if (data.type === 'error' || data.event === 'error') {
+                throw new Error(data.content || data.message || 'n8n workflow hata döndürdü.');
+              }
+
+              const chunk = data.token ?? data.content ?? data.text ?? data.delta;
+              if (typeof chunk === 'string' && chunk.length > 0) {
+                currentMessageRef.current += chunk;
+                upsertStreamingMessage(aiMessageId);
+                continue;
+              }
+
+              if (data.type === 'done' || data.done === true || data.event === 'end') {
+                if (typeof data.message === 'string') {
+                  currentMessageRef.current = data.message;
+                } else if (typeof data.answer === 'string') {
+                  currentMessageRef.current = data.answer;
+                } else if (data.message?.content) {
+                  currentMessageRef.current = data.message.content;
                 }
+                finalizeStream(data.listings || data.metadata?.listings);
+                continue;
+              }
 
-                // Also inject a hidden system note into conversation history so backend agents can use images
-                // without re-sending media_paths (avoids repeated vision safety checks).
-                const mediaNote = `[SYSTEM_MEDIA_NOTE] MEDIA_PATHS=${JSON.stringify(nextPending)}`;
-                const last = conversationHistory.current[conversationHistory.current.length - 1];
-                if (!last || last.role !== 'assistant' || last.content !== mediaNote) {
-                  conversationHistory.current.push({ role: 'assistant', content: mediaNote });
+              if (Array.isArray(data.messages)) {
+                const assistant = data.messages.find((m: any) => m.role === 'assistant');
+                if (assistant?.content) {
+                  currentMessageRef.current = assistant.content;
+                  finalizeStream(data.listings || assistant.listings);
+                  continue;
                 }
-              } else if (data.type === 'error') {
-                throw new Error(data.content || 'Backend hatası oluştu');
               }
             } catch (parseError) {
-              console.error('SSE parse hatası:', parseError, 'Line:', line);
+              console.error('SSE parse hatası:', parseError, 'Line:', payloadLine);
+              currentMessageRef.current += payloadLine;
+              upsertStreamingMessage(aiMessageId);
             }
           }
         }
+
+        return;
       }
+
+      if (contentType.includes('application/json')) {
+        const json = await response.json();
+        const assistant = extractAssistantFromJson(json);
+        if (assistant.text) {
+          commitAssistantResponse(assistant.text, undefined, assistant.listings);
+        }
+        setIsTyping(false);
+        return;
+      }
+
+      const fallbackText = await response.text();
+      if (fallbackText) {
+        commitAssistantResponse(fallbackText);
+      }
+      setIsTyping(false);
     } catch (err: any) {
       console.error('Agent bağlantı hatası:', err);
-      
-      // Determine error type and message
+
       let errorMessage = 'Bağlantı hatası. Lütfen tekrar deneyin.';
-      
+
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
-        errorMessage = 'Backend\'e ulaşılamıyor. CORS veya network hatası olabilir.';
+        errorMessage = 'n8n webhook adresine ulaşılamıyor. CORS veya network hatası olabilir.';
       } else if (err.message) {
         errorMessage = err.message;
       }
-      
+
       setError(errorMessage);
       setIsTyping(false);
       setIsConnecting(false);
-      
-      // Add error message
+
       const errorAiMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: '⚠️ Üzgünüm, şu anda bağlantı kuramıyorum. Backend servisi çalışıyor mu kontrol edin. Lütfen daha sonra tekrar deneyin.',
+        content: '⚠️ Üzgünüm, şu anda n8n webchat akışına bağlanamıyorum. Workflow\'un aktif olduğundan emin olduktan sonra tekrar deneyin.',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorAiMessage]);
@@ -620,8 +709,38 @@ export default function ChatBox() {
     { id: 'improve', icon: 'ri-edit-line', label: 'Metni İyileştir', color: 'from-orange-500 to-pink-500' },
   ];
 
+  // Message grouping (WhatsApp style)
+  const groupMessages = (messages: Message[]) => {
+    const grouped: Message[][] = [];
+    let currentGroup: Message[] = [];
+    let lastType: 'user' | 'ai' | null = null;
+
+    messages.forEach((msg, idx) => {
+      const timeDiff = idx > 0 
+        ? (new Date(msg.timestamp).getTime() - new Date(messages[idx - 1].timestamp).getTime()) / 1000 
+        : 0;
+
+      // Group if same type and within 60 seconds
+      if (msg.type === lastType && timeDiff < 60) {
+        currentGroup.push(msg);
+      } else {
+        if (currentGroup.length > 0) {
+          grouped.push(currentGroup);
+        }
+        currentGroup = [msg];
+        lastType = msg.type;
+      }
+    });
+
+    if (currentGroup.length > 0) {
+      grouped.push(currentGroup);
+    }
+
+    return grouped;
+  };
+
   const renderListingCard = (listing: any) => {
-    const supabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const imageUrls = listing.signed_images?.map((imagePath: string) => {
       if (imagePath.startsWith('http')) {
         return imagePath;
@@ -632,72 +751,216 @@ export default function ChatBox() {
     const mainImage = imageUrls[0] || 'https://readdy.ai/api/search-image?query=product%20placeholder%20simple%20clean%20background&width=400&height=300&seq=placeholder&orientation=landscape';
 
     return (
-      <div
+      <motion.div
         key={listing.id}
-        onClick={() => handleListingClick(listing.id)}
-        className="bg-white rounded-lg p-3 shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-100"
+        whileHover={{ scale: 1.02 }}
+        onClick={() => setDetailListing(listing)}
+        className={`listing-card ${listing.is_premium ? 'listing-card-premium' : ''}`}
       >
-        <div className="flex items-start space-x-3">
-          {/* Ana Resim */}
-          <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
+        <div className="flex items-start space-x-4">
+          {/* Thumbnail with badges */}
+          <div className="listing-card-image">
             <img
               src={mainImage}
               alt={listing.title}
               className="w-full h-full object-cover"
             />
+            {/* Premium Badge */}
+            {listing.is_premium && (
+              <div className="listing-card-badge">
+                <i className="ri-vip-crown-fill" />
+                <span>PREMIUM</span>
+              </div>
+            )}
+            {/* Photo count */}
+            {imageUrls.length > 1 && (
+              <div className="listing-card-photo-count">
+                <i className="ri-image-line text-xs" />
+                <span>{imageUrls.length}</span>
+              </div>
+            )}
           </div>
 
-          {/* İlan Bilgileri */}
+          {/* Content */}
           <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-semibold text-gray-900 mb-1 truncate">
+            {/* Title */}
+            <h4 className="text-base font-bold text-gray-900 mb-1 line-clamp-2">
               {listing.title}
             </h4>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-lg font-bold text-purple-600">
+            
+            {/* Price */}
+            <div className="flex items-baseline space-x-2 mb-2">
+              <span className="text-2xl font-extrabold text-purple-600">
                 {listing.price?.toLocaleString('tr-TR')} ₺
               </span>
             </div>
-            <div className="flex items-center text-xs text-gray-500 mb-2">
-              <i className="ri-map-pin-line mr-1" />
-              {listing.location}
-            </div>
-            {listing.category && (
-              <span className="inline-block px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
-                {listing.category}
-              </span>
-            )}
-          </div>
-        </div>
 
-        {/* Resim Galerisi */}
-        {imageUrls.length > 1 && (
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <div className="flex space-x-2 overflow-x-auto">
-              {imageUrls.slice(0, 3).map((img: string, idx: number) => (
-                <a
-                  key={idx}
-                  href={img}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="w-16 h-16 flex-shrink-0 rounded-md overflow-hidden bg-gray-100 hover:ring-2 hover:ring-purple-500 transition-all"
-                >
-                  <img
-                    src={img}
-                    alt={`${listing.title} - ${idx + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </a>
-              ))}
-              {imageUrls.length > 3 && (
-                <div className="w-16 h-16 flex-shrink-0 rounded-md bg-gray-100 flex items-center justify-center text-xs text-gray-600 font-medium">
-                  +{imageUrls.length - 3}
-                </div>
+            {/* Meta tags */}
+            <div className="flex flex-wrap gap-2 mb-2">
+              {listing.category && (
+                <span className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                  <i className="ri-price-tag-3-fill mr-1 text-xs" />
+                  {listing.category}
+                </span>
+              )}
+              
+              {listing.condition && (
+                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
+                  listing.condition === 'new' 
+                    ? 'bg-green-100 text-green-700'
+                    : listing.condition === 'used'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-gray-100 text-gray-700'
+                }`}>
+                  {listing.condition === 'new' ? 'Sıfır' : listing.condition === 'used' ? '2. El' : 'Yenilenmiş'}
+                </span>
+              )}
+
+              {listing.location && (
+                <span className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
+                  <i className="ri-map-pin-line mr-1 text-xs" />
+                  {listing.location}
+                </span>
+              )}
+            </div>
+
+            {/* View count & timestamp */}
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <span className="flex items-center space-x-1">
+                <i className="ri-eye-line" />
+                <span>{listing.view_count || 0} görüntülenme</span>
+              </span>
+              {listing.created_at && (
+                <span>{formatDistanceToNow(new Date(listing.created_at), { locale: tr, addSuffix: true })}</span>
               )}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      </motion.div>
+    );
+  };
+
+  // Inline detail modal
+  const renderListingDetailModal = () => {
+    if (!detailListing) return null;
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const imageUrls = detailListing.signed_images?.map((imagePath: string) => {
+      if (imagePath.startsWith('http')) {
+        return imagePath;
+      }
+      return `${supabaseUrl}/storage/v1/object/public/product-images/${imagePath}`;
+    }) || [];
+
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="modal-overlay"
+        onClick={() => setDetailListing(null)}
+      >
+        <motion.div
+          initial={{ scale: 0.9, y: 20 }}
+          animate={{ scale: 1, y: 0 }}
+          exit={{ scale: 0.9, y: 20 }}
+          className="modal-content"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Image Carousel */}
+          {imageUrls.length > 0 && (
+            <div className="relative h-80 bg-gray-900">
+              <Swiper
+                pagination={{ clickable: true }}
+                navigation
+                modules={[Pagination, Navigation]}
+                className="h-full"
+              >
+                {imageUrls.map((img: string, idx: number) => (
+                  <SwiperSlide key={idx}>
+                    <img src={img} alt={`${detailListing.title} - ${idx + 1}`} className="w-full h-80 object-contain" />
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+              
+              <button
+                onClick={() => setDetailListing(null)}
+                className="absolute top-4 right-4 z-10 w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+                aria-label="Modal'ı kapat"
+                title="Kapat"
+              >
+                <i className="ri-close-line text-2xl" />
+              </button>
+            </div>
+          )}
+
+          {/* Content */}
+          <div className="p-6 space-y-6">
+            {/* Title & Price */}
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                {detailListing.title}
+              </h2>
+              <div className="flex items-baseline space-x-2">
+                <span className="text-4xl font-extrabold text-purple-600">
+                  {detailListing.price?.toLocaleString('tr-TR')} ₺
+                </span>
+              </div>
+            </div>
+
+            {/* Description */}
+            {detailListing.description && (
+              <div className="bg-gray-50 rounded-xl p-4">
+                <h3 className="font-semibold text-gray-900 mb-2">Açıklama</h3>
+                <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                  {detailListing.description}
+                </p>
+              </div>
+            )}
+
+            {/* Metadata */}
+            {detailListing.metadata && Object.keys(detailListing.metadata).length > 0 && (
+              <div className="grid grid-cols-2 gap-4">
+                {Object.entries(detailListing.metadata).map(([key, value]) => (
+                  <div key={key} className="bg-purple-50 rounded-lg p-3">
+                    <span className="text-xs text-purple-600 font-medium uppercase">{key}</span>
+                    <p className="text-gray-900 font-semibold mt-1">{String(value)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex space-x-3">
+              <button 
+                onClick={() => {
+                  navigate(`/listing/${detailListing.id}`);
+                  setDetailListing(null);
+                  setIsOpen(false);
+                }}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-xl flex items-center justify-center space-x-2 transition-colors"
+              >
+                <i className="ri-external-link-line text-xl" />
+                <span>Detayları Gör</span>
+              </button>
+              <button 
+                className="w-12 h-12 bg-pink-100 hover:bg-pink-200 text-pink-600 rounded-xl flex items-center justify-center transition-colors"
+                aria-label="Favorilere ekle"
+                title="Favorilere Ekle"
+              >
+                <i className="ri-heart-line text-xl" />
+              </button>
+              <button 
+                className="w-12 h-12 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-xl flex items-center justify-center transition-colors"
+                aria-label="İlanı paylaş"
+                title="Paylaş"
+              >
+                <i className="ri-share-line text-xl" />
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
     );
   };
 
@@ -902,35 +1165,114 @@ export default function ChatBox() {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-              {messages.map((message) => (
-                <motion.div
-                  key={message.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className="max-w-[85%] space-y-2">
-                    <div
-                      className={`rounded-2xl px-4 py-3 ${
-                        message.type === 'user'
-                          ? 'bg-gradient-primary text-white'
-                          : 'bg-white text-gray-800 shadow-md'
-                      }`}
-                    >
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                        {message.content
-                          .replace(/Fotoğraflar:\s*https?:\/\/[^\s]+/g, '')
-                          .replace(/https?:\/\/[^\s]+/g, '')
-                          .replace(/\n{3,}/g, '\n\n')
-                          .trim()}
-                      </p>
-                    </div>
+              {groupMessages(messages).map((group, groupIdx) => {
+                const isUser = group[0].type === 'user';
+                return (
+                  <motion.div
+                    key={`group-${groupIdx}`}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className="flex space-x-2 max-w-[85%]">
+                      {/* Avatar - Show only for first message in group */}
+                      {!isUser && (
+                        <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center flex-shrink-0 self-start">
+                          <i className="ri-robot-2-fill text-white text-lg" />
+                        </div>
+                      )}
+                      
+                      <div className="space-y-1 flex-1">
+                        {group.map((message, msgIdx) => {
+                          // Parse listings from message content
+                          let listings: any[] = [];
+                          let cleanContent = message.content;
+                          
+                          const cacheMatch = message.content.match(/\[SEARCH_CACHE\]({.*})/s);
+                          if (cacheMatch) {
+                            try {
+                              const cacheData = JSON.parse(cacheMatch[1]);
+                              listings = cacheData.results || [];
+                              cleanContent = message.content.replace(/\[SEARCH_CACHE\]({.*})/s, '').trim();
+                            } catch (e) {
+                              console.error('Failed to parse listings:', e);
+                            }
+                          }
 
-                    {/* Listing Cards */}
-                    {message.listings && message.listings.length > 0 && renderListingCards(message.listings)}
-                  </div>
-                </motion.div>
-              ))}
+                          return (
+                            <div key={message.id} className="space-y-2">
+                              <div
+                                className={`message-bubble rounded-2xl px-4 py-3 ${
+                                  isUser
+                                    ? 'message-user bg-gradient-primary text-white'
+                                    : 'message-ai bg-white text-gray-800 shadow-md'
+                                }`}
+                              >
+                                {isUser ? (
+                                  <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                                    {cleanContent
+                                      .replace(/Fotoğraflar:\s*https?:\/\/[^\s]+/g, '')
+                                      .replace(/https?:\/\/[^\s]+/g, '')
+                                      .replace(/\n{3,}/g, '\n\n')
+                                      .trim()}
+                                  </p>
+                                ) : (
+                                  <ReactMarkdown
+                                    className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5"
+                                    components={{
+                                      code({ node, inline, className, children, ...props }) {
+                                        return inline ? (
+                                          <code className="bg-purple-50 text-purple-700 px-1 py-0.5 rounded text-xs font-mono" {...props}>
+                                            {children}
+                                          </code>
+                                        ) : (
+                                          <code className="block bg-gray-900 text-gray-100 p-3 rounded-lg text-xs font-mono overflow-x-auto" {...props}>
+                                            {children}
+                                          </code>
+                                        );
+                                      },
+                                      a({ node, href, children, ...props }) {
+                                        return (
+                                          <a href={href} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline" {...props}>
+                                            {children}
+                                          </a>
+                                        );
+                                      },
+                                    }}
+                                  >
+                                    {cleanContent
+                                      .replace(/Fotoğraflar:\s*https?:\/\/[^\s]+/g, '')
+                                      .replace(/https?:\/\/[^\s]+/g, '')
+                                      .replace(/\n{3,}/g, '\n\n')
+                                      .trim()}
+                                  </ReactMarkdown>
+                                )}
+                              </div>
+
+                              {/* Listing Cards */}
+                              {listings.length > 0 && renderListingCards(listings)}
+                            
+                              {/* Timestamp - Show only on last message of group */}
+                              {msgIdx === group.length - 1 && (
+                                <div className={`text-xs text-gray-400 px-2 ${isUser ? 'text-right' : 'text-left'}`}>
+                                  {formatDistanceToNow(new Date(message.timestamp), { locale: tr, addSuffix: true })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Avatar for user - Show on right */}
+                      {isUser && (
+                        <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0 self-start">
+                          <i className="ri-user-line text-white text-lg" />
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
 
               {isTyping && (
                 <motion.div
@@ -1050,6 +1392,11 @@ export default function ChatBox() {
             </div>
           </motion.div>
         )}
+      </AnimatePresence>
+
+      {/* Inline Detail Modal */}
+      <AnimatePresence>
+        {detailListing && renderListingDetailModal()}
       </AnimatePresence>
     </>
   );

@@ -56,7 +56,7 @@ export default function ListingDetailPage() {
       if (error) throw error;
 
       if (data) {
-        const supabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         
         // ✅ images JSON array'inden URL'leri oluştur
         let imageUrls: string[] = [];

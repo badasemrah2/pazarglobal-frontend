@@ -19,10 +19,35 @@ export interface DBListing {
   user_id: string;
 }
 
+// Environment config
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const USE_EDGE_FUNCTIONS = import.meta.env.VITE_USE_EDGE_FUNCTIONS !== 'false'; // default true
+
 /**
- * Fetch listings from Supabase with filters
+ * Fetch listings via Edge Function (with fallback to direct client)
  */
-export async function fetchListingsWithFilters(filters: FilterState): Promise<DBListing[]> {
+async function fetchViaEdge(filters: FilterState): Promise<DBListing[]> {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/get-listings`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || ''}`,
+    },
+    body: JSON.stringify(filters),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Edge function error: ${response.status}`);
+  }
+
+  const result = await response.json();
+  return result.listings || [];
+}
+
+/**
+ * Fetch listings directly from Supabase (fallback)
+ */
+async function fetchDirect(filters: FilterState): Promise<DBListing[]> {
   try {
     let query = supabase
       .from('listings')
@@ -90,6 +115,29 @@ export async function fetchListingsWithFilters(filters: FilterState): Promise<DB
 
     return data || [];
   } catch (error) {
+    console.error('Error fetching listings (direct):', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch listings from Supabase with filters (Edge-first with fallback)
+ */
+export async function fetchListingsWithFilters(filters: FilterState): Promise<DBListing[]> {
+  try {
+    if (USE_EDGE_FUNCTIONS) {
+      try {
+        console.log('🚀 Fetching via Edge function...');
+        return await fetchViaEdge(filters);
+      } catch (edgeError) {
+        console.warn('⚠️ Edge function failed, falling back to direct:', edgeError);
+        return await fetchDirect(filters);
+      }
+    } else {
+      console.log('📡 Fetching directly (Edge functions disabled)');
+      return await fetchDirect(filters);
+    }
+  } catch (error) {
     console.error('Error fetching listings:', error);
     throw error;
   }
@@ -123,21 +171,13 @@ export async function fetchListingById(id: string): Promise<DBListing | null> {
  * Fetch all active listings (no filters)
  */
 export async function fetchListings(): Promise<DBListing[]> {
-  try {
-    const { data, error } = await supabase
-      .from('listings')
-      .select('*')
-      .eq('status', 'active')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Supabase query error:', error);
-      throw error;
-    }
-
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching listings:', error);
-    throw error;
-  }
+  // Use fetchListingsWithFilters with empty filters for consistency
+  return fetchListingsWithFilters({
+    categories: [],
+    priceRange: [0, 1000000],
+    location: '',
+    condition: [],
+    isPremium: false,
+    dateRange: 'all',
+  });
 }

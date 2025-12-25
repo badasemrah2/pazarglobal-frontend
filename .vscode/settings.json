@@ -18,6 +18,7 @@
   "markdown.validate.enabled": false,
   "markdown.validate.ignoredLinks": ["**"],
   "stylelint.enable": false,
+  "css.lint.unknownAtRules": "ignore",
   "eslint.rules.customizations": [
     { "rule": "no-inline-styles", "severity": "off" }
   ],

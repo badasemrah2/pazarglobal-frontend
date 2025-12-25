@@ -91,7 +91,7 @@ Deployment:     Vercel (planned)
 - Node.js 18+
 - npm veya yarn
 - Supabase account
-- Agent Backend URL
+- n8n Webchat Webhook URL
 
 ### 2. Clone & Install
 ```bash
@@ -104,14 +104,14 @@ npm install
 
 ```env
 # Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGc...
 
-# Agent Backend (direkt ChatBox'ta kullanılıyor)
-NEXT_PUBLIC_AGENT_BACKEND_URL=https://pazarglobal-agent-backend-production.up.railway.app
+# n8n Webchat Trigger (ChatBox burada SSE açar)
+VITE_WEBCHAT_WEBHOOK_URL=https://<n8n-host>/webhook/chat/bg5qiB0vOR5i9YX6/e9969c7c-23ff-4aef-84be-8f240e47c050
 
-# App Config
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+# Uygulama ayarları
+VITE_USE_EDGE_FUNCTIONS=true
 ```
 
 ### 4. Development Server
@@ -173,44 +173,41 @@ pazarglobal-frontend/
 
 ### 1. **ChatBox** (`src/components/feature/ChatBox.tsx`)
 
-**En Kritik Component - Agent Backend Entegrasyonu**
+**En Kritik Component - n8n Webchat Entegrasyonu**
 
 ```typescript
-const AGENT_BACKEND_URL = 'https://pazarglobal-agent-backend-production.up.railway.app';
+const WEBCHAT_WEBHOOK_URL = import.meta.env.VITE_WEBCHAT_WEBHOOK_URL;
 
 export default function ChatBox() {
   const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  
-  // User context from Supabase Auth
   const { user } = useAuth();
-  
-  // Send message to Agent Backend
+
   const handleSend = async () => {
-    const response = await fetch(`${AGENT_BACKEND_URL}/web-chat`, {
+    const response = await fetch(WEBCHAT_WEBHOOK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+      },
       body: JSON.stringify({
-        user_id: user?.id || 'guest',
+        sessionId: user?.id || 'web-user',
         message: input,
-        conversation_history: messages,
-        user_context: {
-          name: user?.user_metadata?.full_name
-        }
-      })
+        metadata: {
+          userContext: {
+            name: user?.user_metadata?.full_name,
+          },
+        },
+      }),
     });
-    
-    const data = await response.json();
-    setMessages([...messages, 
-      { role: 'user', content: input },
-      { role: 'assistant', content: data.response }
-    ]);
+
+    // n8n yanıtı SSE olarak gelir; gerçek komponentte response.body üzerinden token token okunur
+    // ChatBox.tsx'teki SSE parser response.body akışını işleyip mesajları güncelliyor
   };
 }
 ```
 
 **Özellikler:**
-- ✅ Direkt Agent Backend'e bağlanır (WhatsApp Bridge kullanmaz!)
+- ✅ Direkt n8n workflow’una bağlanır (WhatsApp Bridge kullanmaz!)
 - ✅ User authentication ile entegre
 - ✅ Conversation history management
 - ✅ Real-time messaging UI
@@ -259,46 +256,66 @@ export default function ChatBox() {
 
 ---
 
-## 🔗 Agent Backend Entegrasyonu
+## 🔗 n8n Webchat Entegrasyonu
 
-### ChatBox → Agent Backend Flow
+### ChatBox → n8n Workflow Flow
 
 ```
 User types message in ChatBox
          ↓
 ChatBox component (React)
          ↓
-POST /web-chat (NOT /agent/run)
+POST VITE_WEBCHAT_WEBHOOK_URL (n8n chat trigger)
          ↓
-Agent Backend (Railway)
+n8n Workflow (Web Chat Trigger → Web Chat Agent)
          ↓
-Workflow Runner → RouterAgent → Specialized Agent
+LangChain agent + Supabase tool kullanımı
          ↓
-Response → ChatBox
+Streaming response → ChatBox
          ↓
 UI Update
 ```
 
 ### Endpoint Kullanımı
 
-**⚠️ ÖNEMLİ:** ChatBox `/web-chat` endpoint kullanıyor (frontend için özel)
+**⚠️ ÖNEMLİ:** Artık Railway backend yerine n8n Web Chat Trigger kullanılıyor. `.env` dosyanıza `VITE_WEBCHAT_WEBHOOK_URL` ekleyip şu formata göre doldurun:
+
+```
+https://<n8n-host>/webhook/chat/bg5qiB0vOR5i9YX6/e9969c7c-23ff-4aef-84be-8f240e47c050
+```
+
+- `<n8n-host>` → kendi n8n instance adresiniz
+- Test modunda çalışırken `webhook-test/chat/...` yolunu kullanın
+- Workflow aktif edildiğinde `webhook/chat/...` yolu devreye girer
 
 ```typescript
 // ChatBox.tsx
-const response = await fetch(`${AGENT_BACKEND_URL}/web-chat`, {
+const WEBCHAT_WEBHOOK_URL = import.meta.env.VITE_WEBCHAT_WEBHOOK_URL;
+
+const response = await fetch(WEBCHAT_WEBHOOK_URL, {
   method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Accept: 'text/event-stream',
+  },
   body: JSON.stringify({
-    user_id: user?.id,
+    sessionId: user?.id || 'web-user',
     message: input,
-    conversation_history: messages
-  })
+    metadata: {
+      userContext: {
+        name: user?.user_metadata?.full_name,
+      },
+    },
+  }),
 });
 ```
 
-**vs WhatsApp Bridge:**
-- WhatsApp Bridge → `/agent/run` kullanır
-- Web Frontend → `/web-chat` kullanır
-- Aynı workflow, farklı endpoint (CORS, session yönetimi farklı)
+Yanıt `text/event-stream` formatında döner; ChatBox gelen token’ları canlı olarak işleyip UI’da gösterir.
+
+**WhatsApp Bridge ile farklar:**
+- WhatsApp → Twilio webhook + PIN akışı, Web → n8n Web Chat Trigger
+- Web tarafında session yönetimi `sessionId` üzerinden yapılır (Conversation Memory node’u aynı ID ile konuşmayı hatırlar)
+- Railway backend’e ihtiyaç kalmadı, tüm akış n8n workflow içinde yönetiliyor
 
 ---
 
