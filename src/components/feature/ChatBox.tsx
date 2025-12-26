@@ -635,13 +635,13 @@ export default function ChatBox() {
       pendingMediaPathsRef.current = [];
     }
     
-    // Send to agent backend (direct agent API if available, else fallback)
-    const mediaPaths: string[] = [];
+    // Include any pending media from image uploads
+    const mediaPaths = pendingMediaPathsRef.current || [];
     const resolvedUserId = customUser?.id || user?.id || localStorage.getItem('user_id') || getUserId();
-    sendMessageToAgentDirect(messageToSend, mediaPaths, resolvedUserId).catch(() => {
-      // Fallback to legacy webhook flow
-      sendMessageToAgent(messageToSend);
-    });
+    
+    // Send to agent backend
+    const options = mediaPaths.length > 0 ? { mediaPaths, mediaType: 'image' } : undefined;
+    sendMessageToAgent(messageToSend, options);
   };
 
   const handleQuickAction = (action: string) => {
