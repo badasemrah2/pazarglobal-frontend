@@ -212,6 +212,53 @@ export default function ChatBox() {
   const currentMessageRef = useRef<string>('');
   const conversationHistory = useRef<Array<{ role: string; content: string }>>([]);
   const pendingMediaPathsRef = useRef<string[]>([]);
+  const pendingMediaPublicMapRef = useRef<Record<string, string>>({});
+
+  const clearPendingMedia = () => {
+    pendingMediaPathsRef.current = [];
+    pendingMediaPublicMapRef.current = {};
+  };
+
+  const addPendingMediaItems = (items: Array<{ path: string; publicUrl?: string }>) => {
+    if (!items || items.length === 0) return;
+    const mapSnapshot = { ...pendingMediaPublicMapRef.current };
+    const incomingPaths: string[] = [];
+    items.forEach(({ path, publicUrl }) => {
+      if (!path) return;
+      incomingPaths.push(path);
+      if (publicUrl) {
+        mapSnapshot[path] = publicUrl;
+      } else if (!mapSnapshot[path]) {
+        mapSnapshot[path] = path;
+      }
+    });
+    const merged = dedupePaths([...pendingMediaPathsRef.current, ...incomingPaths]);
+    const filteredMap: Record<string, string> = {};
+    merged.forEach((path) => {
+      filteredMap[path] = mapSnapshot[path] || path;
+    });
+    pendingMediaPathsRef.current = merged;
+    pendingMediaPublicMapRef.current = filteredMap;
+  };
+
+  const removePendingMediaItems = (paths: string[]) => {
+    if (!paths || paths.length === 0) return;
+    const filtered = pendingMediaPathsRef.current.filter((path) => !paths.includes(path));
+    const filteredMap: Record<string, string> = {};
+    filtered.forEach((path) => {
+      const publicUrl = pendingMediaPublicMapRef.current[path];
+      if (publicUrl) {
+        filteredMap[path] = publicUrl;
+      }
+    });
+    pendingMediaPathsRef.current = filtered;
+    pendingMediaPublicMapRef.current = filteredMap;
+  };
+
+  const getPublicUrlsForPaths = (paths: string[]) => {
+    if (!paths || paths.length === 0) return [];
+    return paths.map((path) => pendingMediaPublicMapRef.current[path] || path);
+  };
 
   const ensureWebhookUrl = () => {
     if (!WEBCHAT_WEBHOOK_URL) {
@@ -232,17 +279,25 @@ export default function ChatBox() {
 
   const handleMediaMetaUpdate = (payload: any) => {
     const safe = Array.isArray(payload?.safe_media_paths) ? (payload.safe_media_paths as string[]) : [];
+    const safePublicUrls = Array.isArray(payload?.safe_media_public_urls)
+      ? (payload.safe_media_public_urls as string[])
+      : [];
     const blocked = Array.isArray(payload?.blocked_media_paths) ? payload.blocked_media_paths : [];
     const blockedPaths = blocked
       .map((entry: any) => (entry && typeof entry === 'object' ? entry.path : null))
       .filter(Boolean) as string[];
 
-    const nextPending = dedupePaths([
-      ...(pendingMediaPathsRef.current || []),
-      ...safe,
-    ]).filter((p) => !blockedPaths.includes(p));
+    if (safe.length > 0) {
+      const safeItems = safe.map((path, idx) => ({
+        path,
+        publicUrl: safePublicUrls[idx],
+      }));
+      addPendingMediaItems(safeItems);
+    }
 
-    pendingMediaPathsRef.current = nextPending;
+    if (blockedPaths.length > 0) {
+      removePendingMediaItems(blockedPaths);
+    }
 
     if (blocked.length > 0) {
       const blockedMessage: Message = {
@@ -254,7 +309,7 @@ export default function ChatBox() {
       setMessages((prev) => [...prev, blockedMessage]);
     }
 
-    const mediaNote = `[SYSTEM_MEDIA_NOTE] MEDIA_PATHS=${JSON.stringify(nextPending)}`;
+    const mediaNote = `[SYSTEM_MEDIA_NOTE] MEDIA_PATHS=${JSON.stringify(pendingMediaPathsRef.current)}`;
     const last = conversationHistory.current[conversationHistory.current.length - 1];
     if (!last || last.role !== 'assistant' || last.content !== mediaNote) {
       conversationHistory.current.push({ role: 'assistant', content: mediaNote });
@@ -277,10 +332,10 @@ export default function ChatBox() {
 
       const lc = cleanContent.toLowerCase();
       if (lc.includes('ilan yayınlandı') || lc.includes('✅ ilan yayınlandı')) {
-        pendingMediaPathsRef.current = [];
+        clearPendingMedia();
       }
       if (lc.includes('iptal edildi') || lc.startsWith('iptal') || lc.includes('işlemi iptal')) {
-        pendingMediaPathsRef.current = [];
+        clearPendingMedia();
       }
     }
 
@@ -318,7 +373,11 @@ export default function ChatBox() {
   const WEBCHAT_WEBHOOK_URL = import.meta.env.VITE_WEBCHAT_WEBHOOK_URL?.trim();
 
   // Direct agent API sender (preferred when AGENT_API_BASE is set)
-  const sendMessageToAgentDirect = async (message: string, mediaPaths: string[], resolvedUserId: string) => {
+  const sendMessageToAgentDirect = async (
+    message: string,
+    mediaPayload: { storagePaths: string[]; publicUrls: string[] },
+    resolvedUserId: string
+  ) => {
     if (!AGENT_API_BASE) return false;
     const endpoint = `${AGENT_API_BASE.replace(/\/$/, '')}/webchat/message`;
     const response = await fetch(endpoint, {
@@ -330,8 +389,9 @@ export default function ChatBox() {
         session_id: resolvedUserId,
         message,
         user_id: resolvedUserId,
-        media_url: mediaPaths[0],
-        media_urls: mediaPaths.length > 0 ? mediaPaths : undefined,
+        media_paths: mediaPayload.storagePaths.length > 0 ? mediaPayload.storagePaths : undefined,
+        media_url: mediaPayload.publicUrls[0],
+        media_urls: mediaPayload.publicUrls.length > 0 ? mediaPayload.publicUrls : undefined,
       }),
     });
 
@@ -346,10 +406,49 @@ export default function ChatBox() {
     if (assistantText) {
       commitAssistantResponse(assistantText, undefined, listings);
     }
-    if (mediaPaths.length > 0) {
-      pendingMediaPathsRef.current = [];
+    if (mediaPayload.publicUrls.length > 0) {
+      clearPendingMedia();
     }
     return true;
+  };
+
+  const requestMediaAnalysis = async (storagePaths: string[], resolvedUserId: string) => {
+    if (!AGENT_API_BASE || storagePaths.length === 0) {
+      return false;
+    }
+    const publicUrls = getPublicUrlsForPaths(storagePaths);
+    if (publicUrls.length === 0) {
+      return false;
+    }
+    const endpoint = `${AGENT_API_BASE.replace(/\/$/, '')}/webchat/media/analyze`;
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: resolvedUserId,
+          user_id: resolvedUserId,
+          media_urls: publicUrls,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '<failed to read response body>');
+        throw new Error(`Media analysis hatası (${response.status}): ${errorText || response.statusText || 'Bilinmeyen hata'}`);
+      }
+
+      const json = await response.json();
+      const assistantText = json.message || json.response || '';
+      if (assistantText) {
+        commitAssistantResponse(assistantText, undefined, json.data?.listings);
+      }
+      return true;
+    } catch (err) {
+      console.error('Media analysis request failed:', err);
+      return false;
+    }
   };
 
   const sendMessageToAgent = async (message: string, options?: { mediaPaths?: string[]; mediaType?: string }) => {
@@ -375,11 +474,16 @@ export default function ChatBox() {
       content: message,
     });
 
-    const mediaPaths = dedupePaths(options?.mediaPaths || []);
+    const mediaStoragePaths = dedupePaths(options?.mediaPaths || []);
+    const mediaPublicUrls = getPublicUrlsForPaths(mediaStoragePaths);
 
     if (AGENT_API_BASE) {
       try {
-        await sendMessageToAgentDirect(message, mediaPaths, resolvedUserId);
+        await sendMessageToAgentDirect(
+          message,
+          { storagePaths: mediaStoragePaths, publicUrls: mediaPublicUrls },
+          resolvedUserId
+        );
         setIsTyping(false);
         setIsConnecting(false);
         return;
@@ -388,8 +492,9 @@ export default function ChatBox() {
       }
     }
 
-    if (mediaPaths.length > 0) {
-      console.log('🖼️  Sending media_paths to n8n webhook:', mediaPaths);
+    if (mediaStoragePaths.length > 0) {
+      console.log('🖼️  Sending media_paths to n8n webhook:', mediaStoragePaths);
+      console.log('🖼️  Sending media_urls to n8n webhook:', mediaPublicUrls);
       console.log('🖼️  Sending media_type to n8n webhook:', options?.mediaType);
     }
 
@@ -397,14 +502,15 @@ export default function ChatBox() {
       sessionId: resolvedUserId,
       message,
       source: 'pazarglobal-webchat',
-      mediaPaths: mediaPaths.length > 0 ? mediaPaths : undefined,
-      media_paths: mediaPaths.length > 0 ? mediaPaths : undefined,
-      media_urls: mediaPaths.length > 0 ? mediaPaths : undefined,
+      mediaPaths: mediaStoragePaths.length > 0 ? mediaStoragePaths : undefined,
+      media_paths: mediaStoragePaths.length > 0 ? mediaStoragePaths : undefined,
+      media_urls: mediaPublicUrls.length > 0 ? mediaPublicUrls : undefined,
       mediaType: options?.mediaType,
       media_type: options?.mediaType,
       metadata: {
         userContext,
-        mediaPaths: mediaPaths.length > 0 ? mediaPaths : undefined,
+        mediaPaths: mediaStoragePaths.length > 0 ? mediaStoragePaths : undefined,
+        mediaUrls: mediaPublicUrls.length > 0 ? mediaPublicUrls : undefined,
         mediaType: options?.mediaType,
         conversationHistory: conversationHistory.current,
         pendingMedia: pendingMediaPathsRef.current,
@@ -461,7 +567,12 @@ export default function ChatBox() {
 
     try {
       const webhookUrl = ensureWebhookUrl();
-      console.debug('Posting to n8n webhook:', webhookUrl, 'payload:', { sessionId: resolvedUserId, message, mediaPaths });
+      console.debug('Posting to n8n webhook:', webhookUrl, 'payload:', {
+        sessionId: resolvedUserId,
+        message,
+        mediaPaths: mediaStoragePaths,
+        mediaUrls: mediaPublicUrls,
+      });
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
@@ -502,8 +613,8 @@ export default function ChatBox() {
           streamClosed = true;
           commitAssistantResponse(currentMessageRef.current, aiMessageId, listingsFromPayload);
           setIsTyping(false);
-          if (mediaPaths.length > 0) {
-            pendingMediaPathsRef.current = [];
+          if (mediaStoragePaths.length > 0) {
+            clearPendingMedia();
           }
         };
 
@@ -592,8 +703,8 @@ export default function ChatBox() {
           commitAssistantResponse(assistant.text, undefined, assistant.listings);
         }
         setIsTyping(false);
-        if (mediaPaths.length > 0) {
-          pendingMediaPathsRef.current = [];
+        if (mediaStoragePaths.length > 0) {
+          clearPendingMedia();
         }
         return;
       }
@@ -603,8 +714,8 @@ export default function ChatBox() {
         commitAssistantResponse(fallbackText);
       }
       setIsTyping(false);
-      if (mediaPaths.length > 0) {
-        pendingMediaPathsRef.current = [];
+      if (mediaStoragePaths.length > 0) {
+        clearPendingMedia();
       }
     } catch (err: any) {
       console.error('Agent bağlantı hatası:', err);
@@ -646,7 +757,7 @@ export default function ChatBox() {
     setInputValue('');
 
     if (messageToSend.toLowerCase().trim().startsWith('iptal')) {
-      pendingMediaPathsRef.current = [];
+      clearPendingMedia();
     }
     
     // Include any pending media from image uploads
@@ -718,7 +829,7 @@ export default function ChatBox() {
 
     const run = async () => {
       const resolvedUserId = customUser?.id || user?.id || localStorage.getItem('user_id') || getUserId();
-      const uploadedPaths: string[] = [];
+      const uploadedItems: Array<{ path: string; publicUrl: string }> = [];
 
       setIsTyping(true);
       try {
@@ -731,7 +842,7 @@ export default function ChatBox() {
             }
 
             const { storagePath, publicUrl } = await uploadImageToSupabase(uploadFile, resolvedUserId);
-            uploadedPaths.push(storagePath);
+            uploadedItems.push({ path: storagePath, publicUrl });
 
             const uploadedMessage: Message = {
               id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
@@ -753,23 +864,23 @@ export default function ChatBox() {
             setMessages((prev) => [...prev, errorMessage]);
           }
         }
+
+        if (uploadedItems.length > 0) {
+          addPendingMediaItems(uploadedItems);
+          const uniquePaths = dedupePaths(uploadedItems.map((item) => item.path));
+          const analysisShown = await requestMediaAnalysis(uniquePaths, resolvedUserId);
+          if (!analysisShown) {
+            const intentQuestion: Message = {
+              id: `${Date.now()}_intent_q`,
+              type: 'ai',
+              content: `📸 ${uniquePaths.length} fotoğraf başarıyla yüklendi!\n\nBu ürün için ne yapmak istiyorsunuz?\n• 📝 İlan oluşturmak (satmak)\n• 🔍 Benzer ürünleri aramak`,
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, intentQuestion]);
+          }
+        }
       } finally {
         setIsTyping(false);
-      }
-
-      const uniquePaths = dedupePaths(uploadedPaths);
-      if (uniquePaths.length > 0) {
-        // Show intent clarification instead of auto-processing
-        const intentQuestion: Message = {
-          id: `${Date.now()}_intent_q`,
-          type: 'ai',
-          content: `📸 ${uniquePaths.length} fotoğraf başarıyla yüklendi!\n\nBu ürün için ne yapmak istiyorsunuz?\n• 📝 İlan oluşturmak (satmak)\n• 🔍 Benzer ürünleri aramak`,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, intentQuestion]);
-
-        // Store image paths in pending for next user message
-        pendingMediaPathsRef.current = uniquePaths;
       }
     };
 
