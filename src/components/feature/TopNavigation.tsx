@@ -3,20 +3,29 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
-export default function TopNavigation() {
+type TopNavigationProps = {
+  isScrolled?: boolean;
+};
+
+export default function TopNavigation({ isScrolled: isScrolledProp }: TopNavigationProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [isScrolledInternal, setIsScrolledInternal] = useState(false);
   const [user, setUser] = useState<any>(null);
 
+  const isScrolled = typeof isScrolledProp === 'boolean' ? isScrolledProp : isScrolledInternal;
+
   useEffect(() => {
+    // If parent controls scroll state, skip internal listener.
+    if (typeof isScrolledProp === 'boolean') return;
+
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
+      setIsScrolledInternal(window.scrollY > 50);
     };
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [isScrolledProp]);
 
   useEffect(() => {
     checkUser();

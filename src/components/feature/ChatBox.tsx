@@ -73,6 +73,161 @@ const dedupePaths = (paths: string[]): string[] => {
   return result;
 };
 
+const normalizeIntentText = (text: string): string => (text || '').toLowerCase().trim();
+
+// Very small local intent guard:
+// If user is just greeting / wants to chat, don't trigger listing-search flow.
+const shouldHandleAsChitChat = (message: string): boolean => {
+  const text = normalizeIntentText(message);
+  if (!text) return false;
+
+  // If the user explicitly asks about listings/search/details/pricing, let the backend handle it.
+  const listingSignals = [
+    'ilan',
+    'satilik',
+    'satılık',
+    'fiyat',
+    'ne kadar',
+    'kaç tl',
+    'kac tl',
+    'kaç ₺',
+    'ara',
+    'arama',
+    'bul',
+    'listele',
+    'göster',
+    'goster',
+    'detay',
+    'nolu ilanın',
+    'no\'lu ilanın',
+  ];
+  if (listingSignals.some((signal) => text.includes(signal))) return false;
+
+  const greetingSignals = [
+    'selam',
+    'merhaba',
+    'mrb',
+    'slm',
+    'sa',
+    'hi',
+    'hello',
+    'naber',
+    'ne haber',
+    'nasılsın',
+    'nasilsin',
+    'sohbet',
+    'konuş',
+    'konus',
+    'konuşma',
+    'muhabbet',
+  ];
+
+  // Short, conversational intents should be caught early.
+  if (greetingSignals.some((signal) => text === signal || text.startsWith(`${signal} `) || text.includes(` ${signal} `))) {
+    return true;
+  }
+
+  return false;
+};
+
+type ExtractedListingFields = {
+  title?: string;
+  description?: string;
+  category?: string;
+  price?: number;
+  location?: string;
+};
+
+const extractListingFieldsFromFreeText = (message: string): ExtractedListingFields => {
+  const original = (message || '').trim();
+  const text = original;
+  const lower = normalizeIntentText(original);
+
+  const extracted: ExtractedListingFields = {};
+
+  // Price: "15000 tl", "15.000 ₺", "fiyat: 15000"
+  const priceMatch = text.match(/(?:fiyat\s*[:=]?\s*)?(\d{2,3}(?:[\s.,]\d{3})*|\d{3,})\s*(?:₺|tl|try|lira)\b/i);
+  if (priceMatch?.[1]) {
+    const normalizedNumber = priceMatch[1].replace(/[\s.,]/g, '');
+    const parsed = parseInt(normalizedNumber, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      extracted.price = parsed;
+    }
+  }
+
+  // Category: "kategori elektronik", "Kategory: Elektronik"
+  const categoryMatch = text.match(/\b(?:kategori|kategory|category)\s*[:=]?\s*([^\n.,;]+)\b/i);
+  if (categoryMatch?.[1]) {
+    extracted.category = categoryMatch[1].trim();
+  }
+
+  // Title / description (optional explicit labels)
+  const titleMatch = text.match(/\b(?:başlık|baslik|ürün adı|urun adi|urun|ürün)\s*[:=]?\s*([^\n]+)\b/i);
+  if (titleMatch?.[1]) {
+    extracted.title = titleMatch[1].trim();
+  }
+  const descMatch = text.match(/\b(?:açıklama|aciklama|detay)\s*[:=]?\s*([\s\S]+)$/i);
+  if (descMatch?.[1]) {
+    extracted.description = descMatch[1].trim();
+  }
+
+  // Lightweight location guess (only a few common cities unless explicitly labeled)
+  const locationLabelMatch = text.match(/\b(?:konum|şehir|sehir|il)\s*[:=]?\s*([^\n.,;]+)\b/i);
+  if (locationLabelMatch?.[1]) {
+    extracted.location = locationLabelMatch[1].trim();
+  } else {
+    const commonCities = ['istanbul', 'ankara', 'izmir', 'bursa', 'antalya', 'adana', 'konya', 'gaziantep'];
+    const city = commonCities.find((c) => lower.includes(c));
+    if (city) {
+      extracted.location = city.charAt(0).toUpperCase() + city.slice(1);
+    }
+  }
+
+  // If title/description not explicitly provided, infer from remaining text.
+  if (!extracted.title || !extracted.description) {
+    let remainder = original;
+    remainder = remainder.replace(/\b(?:kategori|kategory|category)\s*[:=]?\s*[^\n.,;]+\b/gi, ' ');
+    remainder = remainder.replace(/(?:fiyat\s*[:=]?\s*)?(\d{2,3}(?:[\s.,]\d{3})*|\d{3,})\s*(?:₺|tl|try|lira)\b/gi, ' ');
+    remainder = remainder.replace(/\b(fiyat|kategori|kategory|category)\b/gi, ' ');
+    remainder = remainder.replace(/\s+/g, ' ').trim();
+
+    // If user included extra info, treat first chunk as title, full remainder as description.
+    if (!extracted.title && remainder) {
+      extracted.title = remainder.length > 80 ? remainder.slice(0, 80).trim() : remainder;
+    }
+    if (!extracted.description && remainder) {
+      extracted.description = remainder;
+    }
+  }
+
+  return extracted;
+};
+
+const shouldNormalizeAsListingDetails = (message: string, activeTab: Tab): boolean => {
+  const text = normalizeIntentText(message);
+  if (!text) return false;
+  if (activeTab !== 'listing') return false;
+
+  const hasPrice = /\b(?:fiyat\b|\d+\s*(?:₺|tl|try|lira)\b)/i.test(message);
+  const hasCategory = /\b(?:kategori|kategory|category)\b/i.test(message);
+  // Trigger only when it really looks like the user is providing listing fields.
+  return hasPrice || hasCategory;
+};
+
+const buildStructuredListingMessage = (originalMessage: string): string => {
+  const fields = extractListingFieldsFromFreeText(originalMessage);
+  const lines: string[] = [];
+  lines.push('Lütfen aşağıdaki bilgileri ilan taslağına işle:');
+  if (fields.title) lines.push(`Başlık: ${fields.title}`);
+  if (fields.description) lines.push(`Açıklama: ${fields.description}`);
+  if (typeof fields.price === 'number') lines.push(`Fiyat: ${fields.price} TL`);
+  if (fields.category) lines.push(`Kategori: ${fields.category}`);
+  if (fields.location) lines.push(`Konum: ${fields.location}`);
+  lines.push('');
+  lines.push(`(Kullanıcının orijinal mesajı: ${originalMessage})`);
+  return lines.join('\n');
+};
+
 // Resim sıkıştırma fonksiyonu
 const compressImage = async (file: File, maxSizeMB: number = 0.9): Promise<File> => {
   return new Promise((resolve, reject) => {
@@ -756,6 +911,15 @@ export default function ChatBox() {
     const messageToSend = inputValue;
     setInputValue('');
 
+    // If user is just greeting / wants to chat, answer directly (prevents listing-search replies like "0 ilan bulundu...").
+    if (shouldHandleAsChitChat(messageToSend)) {
+      if (activeTab === 'listing') {
+        setActiveTab('general');
+      }
+      commitAssistantResponse('Merhaba! Tabii, sohbet edebiliriz. Ne hakkında konuşmak istersin?');
+      return;
+    }
+
     if (messageToSend.toLowerCase().trim().startsWith('iptal')) {
       clearPendingMedia();
     }
@@ -763,10 +927,15 @@ export default function ChatBox() {
     // Include any pending media from image uploads
     const mediaPaths = pendingMediaPathsRef.current || [];
     const resolvedUserId = customUser?.id || user?.id || localStorage.getItem('user_id') || getUserId();
-    
+
+    // Normalize free-form listing details to avoid draft "missing fields" loops.
+    const outgoingMessage = shouldNormalizeAsListingDetails(messageToSend, activeTab)
+      ? buildStructuredListingMessage(messageToSend)
+      : messageToSend;
+
     // Send to agent backend
     const options = mediaPaths.length > 0 ? { mediaPaths, mediaType: 'image' } : undefined;
-    sendMessageToAgent(messageToSend, options);
+    sendMessageToAgent(outgoingMessage, options);
   };
 
   const handleQuickAction = (action: string) => {
@@ -1218,7 +1387,7 @@ export default function ChatBox() {
   };
 
   const renderMessage = (msg: Message) => {
-    const isUser = msg.role === 'user';
+    const isUser = msg.type === 'user';
     
     // Parse listings from message
     let listings: any[] = [];
@@ -1451,7 +1620,8 @@ export default function ChatBox() {
                                   <ReactMarkdown
                                     className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5"
                                     components={{
-                                      code({ node, inline, className, children, ...props }) {
+                                      code({ children, ...props }: any) {
+                                        const inline = !!props?.inline;
                                         return inline ? (
                                           <code className="bg-purple-50 text-purple-700 px-1 py-0.5 rounded text-xs font-mono" {...props}>
                                             {children}
