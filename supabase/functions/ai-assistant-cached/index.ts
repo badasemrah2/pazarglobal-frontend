@@ -81,21 +81,28 @@ serve(async (req: Request) => {
 
     console.log('💾 Cache lookup:', { found: !!cachedData, expired: cachedData?.expires_at < new Date().toISOString() });
 
-    // 3️⃣ CACHE HIT - Taze veri varsa
+    // 3️⃣ CACHE HIT - Taze veri varsa (with basic sanity checks)
     if (cachedData && !cacheError && new Date(cachedData.expires_at) > new Date()) {
-      console.log('✅ CACHE HIT - Önbellekten dönüyor');
+      const looksLikePhone = /\b(iphone|telefon|samsung|galaxy|xiaomi|redmi|huawei|oppo|realme|oneplus)\b/i.test(title);
+      const avg = Number(cachedData.avg_price);
+      const cacheLooksWrong = looksLikePhone && Number.isFinite(avg) && avg > 0 && avg < 1000;
 
-      // Sorgu sayısını artır
-      await supabase.rpc('increment_query_count', { p_product_key: productKey });
+      if (cacheLooksWrong) {
+        console.log('⚠️ CACHE HIT but value looks wrong; refreshing from web');
+      } else {
+        console.log('✅ CACHE HIT - Önbellekten dönüyor');
 
-      // Log query
-      await supabase.from('market_data_query_log').insert({
-        product_key: productKey,
-        category: category,
-        hit_type: 'cache_hit',
-        response_time_ms: 50,
-        cost: 0.0
-      });
+        // Sorgu sayısını artır
+        await supabase.rpc('increment_query_count', { p_product_key: productKey });
+
+        // Log query
+        await supabase.from('market_data_query_log').insert({
+          product_key: productKey,
+          category: category,
+          hit_type: 'cache_hit',
+          response_time_ms: 50,
+          cost: 0.0
+        });
 
       // Durum katsayısı uygula
       const conditionMultipliers: { [key: string]: number } = {
@@ -104,28 +111,29 @@ serve(async (req: Request) => {
         'İyi Durumda': 0.70,
         'Orta Durumda': 0.55
       };
-      const multiplier = conditionMultipliers[condition || 'İyi Durumda'] || 0.70;
-      const finalPrice = Math.round(cachedData.avg_price * multiplier);
+        const multiplier = conditionMultipliers[condition || 'İyi Durumda'] || 0.70;
+        const finalPrice = Math.round(cachedData.avg_price * multiplier);
 
-      const explanation = `🌐 GÜNCEL PİYASA VERİSİ (Önbellek):\n\n` +
-        `📊 Fiyat Aralığı: ${cachedData.min_price.toLocaleString('tr-TR')} - ${cachedData.max_price.toLocaleString('tr-TR')} ₺\n` +
-        `📈 Piyasa Ortalaması: ${cachedData.avg_price.toLocaleString('tr-TR')} ₺\n` +
-        `⚙️ Durum Katsayısı: ${condition || 'İyi Durumda'} (×${multiplier})\n` +
-        `🎯 Güven Skoru: ${(cachedData.confidence * 100).toFixed(0)}%\n\n` +
-        `💰 ÖNERİLEN SATIŞ FİYATI: ${finalPrice.toLocaleString('tr-TR')} ₺\n\n` +
-        `📅 Son Güncelleme: ${new Date(cachedData.last_updated_at).toLocaleDateString('tr-TR')}\n` +
-        `✅ Veriler ${cachedData.sources.length} farklı kaynaktan toplanmıştır.`;
+        const explanation = `🌐 GÜNCEL PİYASA VERİSİ (Önbellek):\n\n` +
+          `📊 Fiyat Aralığı: ${cachedData.min_price.toLocaleString('tr-TR')} - ${cachedData.max_price.toLocaleString('tr-TR')} ₺\n` +
+          `📈 Piyasa Ortalaması: ${cachedData.avg_price.toLocaleString('tr-TR')} ₺\n` +
+          `⚙️ Durum Katsayısı: ${condition || 'İyi Durumda'} (×${multiplier})\n` +
+          `🎯 Güven Skoru: ${(cachedData.confidence * 100).toFixed(0)}%\n\n` +
+          `💰 ÖNERİLEN SATIŞ FİYATI: ${finalPrice.toLocaleString('tr-TR')} ₺\n\n` +
+          `📅 Son Güncelleme: ${new Date(cachedData.last_updated_at).toLocaleDateString('tr-TR')}\n` +
+          `✅ Veriler ${cachedData.sources.length} farklı kaynaktan toplanmıştır.`;
 
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          result: explanation,
-          price: finalPrice,
-          cached: true,
-          confidence: cachedData.confidence
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+        return new Response(
+          JSON.stringify({
+            success: true,
+            result: explanation,
+            price: finalPrice,
+            cached: true,
+            confidence: cachedData.confidence
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // 4️⃣ CACHE MISS - Perplexity çağır
