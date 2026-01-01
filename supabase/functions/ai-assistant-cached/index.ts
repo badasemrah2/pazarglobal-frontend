@@ -233,6 +233,14 @@ KURALLAR:
       maxPrice = tmp;
     }
 
+    // Heuristic: phone listings sometimes yield small numbers (e.g., "12-64") from model/storage.
+    // If it looks like a phone and the parsed numbers are unrealistically small, treat them as "bin" (×1000).
+    const looksLikePhone = /\b(iphone|telefon|samsung|galaxy|xiaomi|redmi|huawei|oppo|realme|oneplus)\b/i.test(title);
+    if (looksLikePhone && maxPrice > 0 && maxPrice < 1000) {
+      minPrice = minPrice * 1000;
+      maxPrice = maxPrice * 1000;
+    }
+
     const avgPrice = (minPrice + maxPrice) / 2;
 
     // Kaynakları parse et
