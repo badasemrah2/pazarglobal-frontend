@@ -521,6 +521,16 @@ export default function CreateListingPage() {
       return;
     }
 
+    // Desteklenen formatları kontrol et
+    const supportedFormats = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    const unsupportedFiles = files.filter(f => f.type.startsWith('image/') && !supportedFormats.includes(f.type));
+    
+    if (unsupportedFiles.length > 0) {
+      const formatNames = unsupportedFiles.map(f => f.name.split('.').pop()?.toUpperCase()).join(', ');
+      alert(`⚠️ Desteklenmeyen format: ${formatNames}\n\nDesteklenen formatlar: JPG, PNG, GIF, WebP\n\nLütfen resmi farklı formatta kaydedin.`);
+      return;
+    }
+
     setCompressing(true);
 
     try {
@@ -531,7 +541,7 @@ export default function CreateListingPage() {
         // Dosya boyutu kontrolü
         const fileSizeMB = file.size / (1024 * 1024);
         
-        if (file.type.startsWith('image/')) {
+        if (file.type.startsWith('image/') && supportedFormats.includes(file.type)) {
           // Resim sıkıştırma (max 0.9 MB)
           if (fileSizeMB > 0.9) {
             const compressed = await compressImage(file, 0.9);
@@ -1017,7 +1027,7 @@ export default function CreateListingPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*,video/*"
+                accept="image/jpeg,image/png,image/gif,image/webp,video/*"
                 multiple
                 onChange={handleImageSelect}
                 className="hidden"

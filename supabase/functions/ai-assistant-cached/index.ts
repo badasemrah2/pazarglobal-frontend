@@ -35,10 +35,10 @@ function normalizeConditionInput(raw: unknown): string {
   if (msg.includes('sifir') || msg.includes('sıfır')) return 'Sıfır';
   if (msg.includes('az kullan')) return 'Az Kullanılmış';
 
+  // 2. El variants - normalize dots and spaces
+  const msg2 = msg.replace(/\./g, '').replace(/\s+/g, '');
   if (
-    msg.includes('2 el') ||
-    msg.includes('2el') ||
-    msg.includes('2.el') ||
+    msg2.includes('2el') ||
     msg.includes('ikinci el') ||
     msg.includes('ikinci')
   ) {
@@ -182,11 +182,21 @@ serve(async (req: Request) => {
     // 3️⃣ CACHE HIT - Taze veri varsa (with basic sanity checks)
     if (cachedData && !cacheError && new Date(cachedData.expires_at) > new Date()) {
       const looksLikePhone = /\b(iphone|telefon|samsung|galaxy|xiaomi|redmi|huawei|oppo|realme|oneplus)\b/i.test(title);
+      const looksLikeShoes = /\b(nike|adidas|puma|reebok|new balance|converse|vans|ayakkab|sneaker|spor ayakkab|kosu)\b/i.test(title);
       const avg = Number(cachedData.avg_price);
-      const cacheLooksWrong = looksLikePhone && Number.isFinite(avg) && avg > 0 && avg < 1000;
+      
+      // Sanity checks for cached data (too low OR too high)
+      const phoneCacheBad = looksLikePhone && Number.isFinite(avg) && avg > 0 && avg < 1000;
+      const shoesCacheTooLow = looksLikeShoes && Number.isFinite(avg) && avg > 0 && avg < 500;
+      const shoesCacheTooHigh = looksLikeShoes && Number.isFinite(avg) && avg > 12000;
+      const shoesCacheBad = shoesCacheTooLow || shoesCacheTooHigh;
+      const generalCacheBad = Number.isFinite(avg) && avg > 0 && avg < 100;
+      const cacheLooksWrong = phoneCacheBad || shoesCacheBad || generalCacheBad;
 
       if (cacheLooksWrong) {
-        console.log('⚠️ CACHE HIT but value looks wrong; refreshing from web');
+        console.log('⚠️ CACHE HIT but value looks wrong; refreshing from web', { avg, phoneCacheBad, shoesCacheBad, generalCacheBad });
+        // Delete bad cache entry
+        await supabase.from('market_price_snapshots').delete().eq('product_key', productKey);
       } else {
         console.log('✅ CACHE HIT - Önbellekten dönüyor');
 
@@ -273,6 +283,29 @@ serve(async (req: Request) => {
       throw new Error('PERPLEXITY_API_KEY bulunamadı');
     }
 
+    // Define product type detection early for category-specific logic
+    const looksLikePhone = /\b(iphone|telefon|samsung|galaxy|xiaomi|redmi|huawei|oppo|realme|oneplus)\b/i.test(title);
+    const looksLikeShoes = /\b(nike|adidas|puma|reebok|new balance|converse|vans|ayakkab|sneaker|spor ayakkab|kosu)\b/i.test(title);
+
+    // Category-specific search domains and prompts
+    const isShoeCategory = looksLikeShoes || /ayakkab|spor|kosu/i.test(category);
+    const isPhoneCategory = looksLikePhone || /telefon|elektronik/i.test(category);
+    const isCarCategory = /araba|otomobil|ara[cç]/i.test(category);
+
+    const searchDomains = isShoeCategory
+      ? ['trendyol.com', 'hepsiburada.com', 'sportive.com.tr', 'superstep.com.tr', 'sneakscloud.com']
+      : isPhoneCategory
+      ? ['hepsiburada.com', 'trendyol.com', 'n11.com', 'teknosa.com', 'mediamarkt.com.tr']
+      : isCarCategory
+      ? ['sahibinden.com', 'arabam.com', 'letgo.com']
+      : ['sahibinden.com', 'hepsiburada.com', 'trendyol.com', 'letgo.com', 'n11.com'];
+
+    const categoryHint = isShoeCategory
+      ? '\n\nÖNEMLİ: Bu bir AYAKKABI. Türkiye\'de spor ayakkabı fiyatları genelde 1.500-12.000 TL arasındadır. Lütfen SADECE ayakkabı fiyatlarını ara.'
+      : isPhoneCategory
+      ? '\n\nÖNEMLİ: Bu bir CEP TELEFONU. Fiyatlar genelde 5.000-80.000 TL arasındadır.'
+      : '';
+
     const perplexityResponse = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: {
@@ -284,21 +317,21 @@ serve(async (req: Request) => {
         messages: [
           {
             role: 'system',
-            content: 'Sen bir fiyat araştırma uzmanısın. Türkiye\'deki e-ticaret sitelerinden GERÇEK GÜNCEL fiyat verilerini topluyorsun. SADECE sayısal fiyat aralığı ver.'
+            content: 'Sen bir fiyat araştırma uzmanısın. Türkiye\'deki e-ticaret sitelerinden GERÇEK GÜNCEL fiyat verilerini topluyorsun. SADECE sayısal fiyat aralığı ver. TL cinsinden.'
           },
           {
             role: 'user',
             content: `"${title}" için Türkiye'deki e-ticaret sitelerindeki GÜNCEL satış fiyatları nedir?
 
-Kategori: ${category}${description ? `\n\nÜrün Detayları: ${description}` : ''}
+Kategori: ${category}${description ? `\n\nÜrün Detayları: ${description}` : ''}${categoryHint}
 
 KURALLAR:
-- Format: XXXXXX-YYYYYY
+- Format: XXXXXX-YYYYYY (TL cinsinden)
 - Sadece rakam ve tire
 - Gerçek sitelerden güncel veri
-- Ürün detaylarını dikkate al
+- ${isShoeCategory ? 'Sportive, Trendyol, Hepsiburada gibi sitelerden ayakkabı fiyatı bul' : 'Ürün detaylarını dikkate al'}
 
-Örnek: 25000-35000`
+Örnek: ${isShoeCategory ? '4500-7500' : isPhoneCategory ? '25000-35000' : '5000-15000'}`
           }
         ],
         temperature: 0.1,
@@ -307,13 +340,7 @@ KURALLAR:
         web_search_options: {
           search_context_size: 'high'
         },
-        search_domain_filter: [
-          'sahibinden.com',
-          'arabam.com', 
-          'letgo.com',
-          'hepsiburada.com',
-          'trendyol.com'
-        ],
+        search_domain_filter: searchDomains,
         search_recency_filter: 'week'
       }),
     });
@@ -369,13 +396,33 @@ KURALLAR:
 
     // Heuristic: phone listings sometimes yield small numbers (e.g., "12-64") from model/storage.
     // If it looks like a phone and the parsed numbers are unrealistically small, treat them as "bin" (×1000).
-    const looksLikePhone = /\b(iphone|telefon|samsung|galaxy|xiaomi|redmi|huawei|oppo|realme|oneplus)\b/i.test(title);
     if (looksLikePhone && maxPrice > 0 && maxPrice < 1000) {
       minPrice = minPrice * 1000;
       maxPrice = maxPrice * 1000;
     }
 
+    // Heuristic: Nike/Adidas shoes - realistic price range is 500-12000 TL (Turkey 2024-2026)
+    // Real data: Nike Structure 26 = 2000-10000 TL, most shoes 1500-8000 TL
+    if (looksLikeShoes) {
+      // Too low - likely parsed wrong (e.g., "26" -> "2600")
+      if (maxPrice > 0 && maxPrice < 500) {
+        minPrice = minPrice * 100;
+        maxPrice = maxPrice * 100;
+      }
+      // Too high - Perplexity sometimes returns completely wrong data (e.g., 50000 TL for shoes)
+      // Max realistic shoe price in Turkey is ~12000 TL (premium limited editions)
+      if (maxPrice > 12000) {
+        console.log('⚠️ Shoe price unrealistic, rejecting Perplexity response', { minPrice, maxPrice });
+        // Don't trust this data at all - throw error to prevent bad cache
+        throw new Error(`Ayakkabı fiyatı mantıksız (${maxPrice} TL) - veri güvenilir değil`);
+      }
+    }
+
+    // General sanity check: if avg price is unrealistically low (< 100 TL), reject
     const avgPrice = (minPrice + maxPrice) / 2;
+    if (avgPrice < 100) {
+      throw new Error(`Fiyat çok düşük görünüyor (${avgPrice} TL) - parse hatası olabilir`);
+    }
 
     // Kaynakları parse et
     interface SearchResult {

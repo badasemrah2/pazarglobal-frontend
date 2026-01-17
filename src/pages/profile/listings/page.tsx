@@ -711,7 +711,7 @@ export default function ManageListingsPage() {
                       ref={fileInputRef}
                       type="file"
                       multiple
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
                       onChange={handleImageSelect}
                       disabled={uploadingImages}
                       className="hidden"

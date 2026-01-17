@@ -495,12 +495,29 @@ export default function ChatBox() {
 
     if (files.length === 0) return;
 
+    // Desteklenen formatları kontrol et
+    const supportedFormats = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     const imageFiles = files.filter(f => f.type.startsWith('image/'));
-    if (imageFiles.length === 0) {
+    const unsupportedFiles = imageFiles.filter(f => !supportedFormats.includes(f.type));
+    
+    if (unsupportedFiles.length > 0) {
+      const formatNames = unsupportedFiles.map(f => f.name.split('.').pop()?.toUpperCase()).join(', ');
       const errorMessage: Message = {
         id: Date.now().toString(),
         type: 'ai',
-        content: '⚠️ Lütfen sadece fotoğraf yükleyin.',
+        content: `⚠️ Desteklenmeyen format: ${formatNames}\n\nDesteklenen formatlar: JPG, PNG, GIF, WebP\n\nLütfen resmi farklı formatta kaydedin.`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      return;
+    }
+    
+    const validImageFiles = imageFiles.filter(f => supportedFormats.includes(f.type));
+    if (validImageFiles.length === 0) {
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        type: 'ai',
+        content: '⚠️ Lütfen sadece fotoğraf yükleyin (JPG, PNG, GIF, WebP).',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -508,7 +525,7 @@ export default function ChatBox() {
     }
 
     // LIMIT: Maximum 5 photos per upload (user-friendly limit)
-    if (imageFiles.length > 5) {
+    if (validImageFiles.length > 5) {
       const errorMessage: Message = {
         id: Date.now().toString(),
         type: 'ai',
@@ -517,7 +534,7 @@ export default function ChatBox() {
       };
       setMessages((prev) => [...prev, errorMessage]);
     }
-    const limitedFiles = imageFiles.slice(0, 5);
+    const limitedFiles = validImageFiles.slice(0, 5);
 
     const run = async () => {
       const resolvedUserId = customUser?.id || user?.id || localStorage.getItem('user_id') || getUserId();
@@ -1221,7 +1238,7 @@ export default function ChatBox() {
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileChange}
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
                   multiple
                   className="hidden"
                   aria-label="Fotoğraf seç"
