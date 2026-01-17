@@ -28,6 +28,29 @@ function normalizeForMatch(text: unknown): string {
   return normalized.toLowerCase();
 }
 
+function normalizeConditionInput(raw: unknown): string {
+  const msg = normalizeForMatch(raw || '');
+  if (!msg) return '';
+
+  if (msg.includes('sifir') || msg.includes('sıfır')) return 'Sıfır';
+  if (msg.includes('az kullan')) return 'Az Kullanılmış';
+
+  if (
+    msg.includes('2 el') ||
+    msg.includes('2el') ||
+    msg.includes('2.el') ||
+    msg.includes('ikinci el') ||
+    msg.includes('ikinci')
+  ) {
+    return '2. El';
+  }
+
+  if (msg.includes('iyi')) return 'İyi Durumda';
+  if (msg.includes('orta')) return 'Orta Durumda';
+
+  return '';
+}
+
 function computeEvidenceFactor(args: {
   vision?: any;
   userClaim?: string;
@@ -127,8 +150,9 @@ serve(async (req: Request) => {
 
   try {
     const { action, category, title, description, condition, vision, user_claim } = await req.json();
+    const normalizedCondition = normalizeConditionInput(condition) || 'İyi Durumda';
 
-    console.log('📦 Request:', { action, category, title, description, condition, has_vision: !!vision, has_user_claim: !!user_claim });
+    console.log('📦 Request:', { action, category, title, description, condition, normalizedCondition, has_vision: !!vision, has_user_claim: !!user_claim });
 
     if (action !== 'suggest_price') {
       return new Response(
@@ -182,11 +206,12 @@ serve(async (req: Request) => {
       const conditionMultipliers: { [key: string]: number } = {
         'Sıfır': 1.0,
         'Az Kullanılmış': 0.85,
+        '2. El': 0.75,
         'İyi Durumda': 0.70,
         'Orta Durumda': 0.55
       };
-        const multiplier = conditionMultipliers[condition || 'İyi Durumda'] || 0.70;
-        const finalPrice = Math.round(cachedData.avg_price * multiplier);
+        const multiplier = conditionMultipliers[normalizedCondition] ?? 0.70;
+        const finalPrice = Math.round(Number(cachedData.avg_price) * multiplier);
 
         const evidence = computeEvidenceFactor({ vision, userClaim: typeof user_claim === 'string' ? user_claim : '' });
         const baseConfidence = Number(cachedData.confidence) || 0;
@@ -195,7 +220,7 @@ serve(async (req: Request) => {
         const explanation = `🌐 GÜNCEL PİYASA VERİSİ (Önbellek):\n\n` +
           `📊 Fiyat Aralığı: ${cachedData.min_price.toLocaleString('tr-TR')} - ${cachedData.max_price.toLocaleString('tr-TR')} ₺\n` +
           `📈 Piyasa Ortalaması: ${cachedData.avg_price.toLocaleString('tr-TR')} ₺\n` +
-          `⚙️ Durum Katsayısı: ${condition || 'İyi Durumda'} (×${multiplier})\n` +
+          `⚙️ Durum Katsayısı: ${normalizedCondition} (×${multiplier})\n` +
           `🎯 Güven Skoru: ${(adjustedConfidence * 100).toFixed(0)}%` +
           (evidence.factor !== 1.0 ? ` (kanıt uyumu ×${evidence.factor})` : '') +
           `\n\n` +
@@ -212,7 +237,13 @@ serve(async (req: Request) => {
             confidence: adjustedConfidence,
             base_confidence: baseConfidence,
             evidence_factor: evidence.factor,
-            evidence_reasons: evidence.reasons
+            evidence_reasons: evidence.reasons,
+            min_price: Number(cachedData.min_price),
+            max_price: Number(cachedData.max_price),
+            avg_price: Number(cachedData.avg_price),
+            condition_used: normalizedCondition,
+            condition_multiplier: multiplier,
+            product_key: productKey
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -259,8 +290,7 @@ serve(async (req: Request) => {
             role: 'user',
             content: `"${title}" için Türkiye'deki e-ticaret sitelerindeki GÜNCEL satış fiyatları nedir?
 
-Kategori: ${category}
-Durum: ${condition || 'Az Kullanılmış'}${description ? `\n\nÜrün Detayları: ${description}` : ''}
+Kategori: ${category}${description ? `\n\nÜrün Detayları: ${description}` : ''}
 
 KURALLAR:
 - Format: XXXXXX-YYYYYY
@@ -394,7 +424,7 @@ KURALLAR:
         product_key: productKey,
         original_title: title,
         category: category,
-        condition: condition,
+        condition: normalizedCondition,
         min_price: minPrice,
         max_price: maxPrice,
         avg_price: avgPrice,
@@ -428,16 +458,17 @@ KURALLAR:
     const conditionMultipliers: { [key: string]: number } = {
       'Sıfır': 1.0,
       'Az Kullanılmış': 0.85,
+      '2. El': 0.75,
       'İyi Durumda': 0.70,
       'Orta Durumda': 0.55
     };
-    const multiplier = conditionMultipliers[condition || 'İyi Durumda'] || 0.70;
+    const multiplier = conditionMultipliers[normalizedCondition] ?? 0.70;
     const finalPrice = Math.round(avgPrice * multiplier);
 
     const explanation = `🌐 GERÇEK PİYASA VERİSİ:\n\n` +
       `📊 Güncel Fiyat Aralığı: ${minPrice.toLocaleString('tr-TR')} - ${maxPrice.toLocaleString('tr-TR')} ₺\n` +
       `📈 Piyasa Ortalaması: ${avgPrice.toLocaleString('tr-TR')} ₺\n` +
-      `⚙️ Durum Katsayısı: ${condition || 'İyi Durumda'} (×${multiplier})\n` +
+      `⚙️ Durum Katsayısı: ${normalizedCondition} (×${multiplier})\n` +
       (() => {
         const evidence = computeEvidenceFactor({ vision, userClaim: typeof user_claim === 'string' ? user_claim : '' });
         const adjustedConfidence = clamp01(confidence * evidence.factor);
@@ -458,7 +489,13 @@ KURALLAR:
         confidence: adjustedConfidence,
         base_confidence: clamp01(confidence),
         evidence_factor: evidence.factor,
-        evidence_reasons: evidence.reasons
+        evidence_reasons: evidence.reasons,
+        min_price: minPrice,
+        max_price: maxPrice,
+        avg_price: avgPrice,
+        condition_used: normalizedCondition,
+        condition_multiplier: multiplier,
+        product_key: productKey
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
