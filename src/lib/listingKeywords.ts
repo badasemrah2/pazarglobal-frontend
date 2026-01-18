@@ -92,18 +92,27 @@ function inferSynonyms(input: { category: string; title: string; description?: s
     for (const w of ['telefon', 'akıllı', 'akilli', 'android']) add.add(w);
   }
 
-  // Laptop/PC hints
-  if (
-    haystack.includes('laptop') ||
-    haystack.includes('notebook') ||
-    haystack.includes('macbook') ||
-    haystack.includes('lenovo') ||
-    haystack.includes('dell') ||
-    haystack.includes('asus') ||
-    haystack.includes('acer') ||
-    haystack.includes('msi') ||
-    haystack.includes('hp')
-  ) {
+  // Laptop/PC hints - use word boundary matching to avoid false positives
+  // e.g. "pegasus" should NOT match "asus"
+  const laptopBrands = ['lenovo', 'dell', 'macbook', 'acer', 'msi'];
+  const laptopTerms = ['laptop', 'notebook'];
+  
+  // Check exact laptop/notebook terms (these are safe for substring match)
+  const hasLaptopTerm = laptopTerms.some(term => haystack.includes(term));
+  
+  // Check laptop brands with word boundary (avoid pegasus->asus, muhteşem->hp issues)
+  const wordBoundaryPattern = (brand: string) => {
+    const escaped = brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(^|[^a-zçğıöşü])${escaped}([^a-zçğıöşü]|$)`, 'i');
+  };
+  const hasLaptopBrand = laptopBrands.some(brand => wordBoundaryPattern(brand).test(haystack));
+  
+  // Special handling for 'hp' and 'asus' - only match if preceded/followed by non-letter
+  // to avoid false positives like "muhteşem hp" or "pegasus"
+  const hasHpBrand = /(?:^|[^a-zçğıöşü])hp(?:[^a-zçğıöşü]|$)/i.test(haystack);
+  const hasAsusBrand = /(?:^|[^a-zçğıöşü])asus(?:[^a-zçğıöşü]|$)/i.test(haystack);
+  
+  if (hasLaptopTerm || hasLaptopBrand || hasHpBrand || hasAsusBrand) {
     for (const w of ['bilgisayar', 'laptop', 'notebook']) add.add(w);
   }
 
