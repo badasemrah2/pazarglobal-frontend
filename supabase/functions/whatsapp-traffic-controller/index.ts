@@ -160,10 +160,11 @@ Deno.serve(async (req: Request) => {
 
       // Session still valid → TRAFİĞİ GEÇİR ✅
       if (secondsLeft > 0) {
-        // Kullanıcı "iptal" dedi mi?
+        // Kullanıcı "iptal" dedi mi? (WORD BOUNDARY kontrolü - "Açıklama" gibi false positives önlenir)
         const cancelKeywords = ['iptal', 'vazgeç', 'kapat', 'çık', 'cancel', 'stop'];
+        const messageWords = message.toLowerCase().split(/\s+/);
         const isCancelRequest = cancelKeywords.some(keyword => 
-          message.toLowerCase().includes(keyword)
+          messageWords.includes(keyword)
         );
 
         if (isCancelRequest) {
