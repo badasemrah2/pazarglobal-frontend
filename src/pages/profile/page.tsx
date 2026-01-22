@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopNavigation from '../../components/feature/TopNavigation';
+import { WalletSection } from '../../components/wallet';
 import { supabase } from '../../lib/supabase';
 
 export default function ProfilePage() {
@@ -223,6 +224,11 @@ export default function ProfilePage() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Cüzdanım - Üstte tam genişlik */}
+          <div className="lg:col-span-2">
+            <WalletSection userId={user?.id || ''} />
+          </div>
+
           {/* Profil Bilgileri */}
           <div className="bg-white rounded-2xl shadow-lg p-8">
             <h2 className="text-xl font-bold text-gray-900 mb-6">Profil Bilgileri</h2>

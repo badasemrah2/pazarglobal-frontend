@@ -310,6 +310,11 @@ export default function ChatBox() {
     if (!AGENT_API_BASE) {
       throw new Error('VITE_AGENT_API_BASE tanımlı değil. Agent API adresini .env dosyanıza ekleyin.');
     }
+    
+    // Get authenticated user context
+    const authenticatedUserId = customUser?.id || user?.id;
+    const phoneNumber = customUser?.phone || user?.phone;
+    
     const endpoint = `${AGENT_API_BASE.replace(/\/$/, '')}/webchat/message`;
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -317,9 +322,10 @@ export default function ChatBox() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        session_id: resolvedUserId,
+        session_id: authenticatedUserId || resolvedUserId, // Real user ID or fallback
         message,
-        user_id: resolvedUserId,
+        user_id: authenticatedUserId || resolvedUserId, // Real Supabase UUID
+        phone_number: phoneNumber || undefined, // Optional: for WhatsApp-Web matching
         media_url: mediaPayload.publicUrls[0],
         media_urls: mediaPayload.publicUrls.length > 0 ? mediaPayload.publicUrls : undefined,
       }),
@@ -350,6 +356,11 @@ export default function ChatBox() {
     if (publicUrls.length === 0) {
       return false;
     }
+    
+    // Get authenticated user context
+    const authenticatedUserId = customUser?.id || user?.id;
+    const phoneNumber = customUser?.phone || user?.phone;
+    
     const endpoint = `${AGENT_API_BASE.replace(/\/$/, '')}/webchat/media/analyze`;
     try {
       const response = await fetch(endpoint, {
@@ -358,8 +369,9 @@ export default function ChatBox() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          session_id: resolvedUserId,
-          user_id: resolvedUserId,
+          session_id: authenticatedUserId || resolvedUserId, // Real user ID
+          user_id: authenticatedUserId || resolvedUserId, // Real Supabase UUID
+          phone_number: phoneNumber || undefined, // Optional
           media_urls: publicUrls,
         }),
       });
