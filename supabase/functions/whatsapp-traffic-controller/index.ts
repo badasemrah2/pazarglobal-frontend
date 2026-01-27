@@ -15,6 +15,8 @@ import { corsHeaders } from '../_shared/cors.ts';
 
 // @ts-ignore - Deno global
 const BACKEND_URL = Deno.env.get('BACKEND_URL') || 'https://pazarglobal-agent-backend-production-4ec8.up.railway.app';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+const STORAGE_BUCKET = Deno.env.get('SUPABASE_STORAGE_BUCKET') || 'product-images';
 const SESSION_DURATION_MINUTES = 10;
 const LAST_ACTIVITY_THROTTLE_SECONDS = 30;
 
@@ -30,6 +32,15 @@ function buildBackendUrl(path: string): string {
   const base = normalizeBackendBaseUrl(BACKEND_URL);
   const p = (path || '').startsWith('/') ? path : `/${path}`;
   return `${base}${p}`;
+}
+
+function toPublicMediaUrl(path?: string): string | null {
+  if (!path) return null;
+  const trimmed = path.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+  if (!SUPABASE_URL) return null;
+  return `${SUPABASE_URL.replace(/\/+$/, '')}/storage/v1/object/public/${STORAGE_BUCKET}/${trimmed}`;
 }
 
 interface IncomingRequest {
@@ -218,25 +229,19 @@ Deno.serve(async (req: Request) => {
           source: 'whatsapp',
         };
 
+        const mediaUrls = (requestData.media_paths || [])
+          .map((path) => toPublicMediaUrl(path) || '')
+          .filter(Boolean);
+
         const backendPayload = {
-          user_id: activeSession.user_id,
-          phone: phone,
           message: requestData.message,
-          conversation_history: requestData.conversation_history || [],
-          media_paths: requestData.media_paths,
-          media_type: requestData.media_type,
-          draft_listing_id: requestData.draft_listing_id,
-          session_token: activeSession.session_token,
-          user_context: {
-            ...(requestData.user_context || {}),
-            session: {
-              ...((requestData.user_context || {}).session || {}),
-              ...injectedSessionContext,
-            },
-          },
+          session_id: activeSession.session_token || activeSession.id || phone,
+          user_id: activeSession.user_id,
+          media_url: mediaUrls[0] || null,
+          media_urls: mediaUrls,
         };
 
-        const backendResponse = await fetch(buildBackendUrl('/agent/run'), {
+        const backendResponse = await fetch(buildBackendUrl('/webchat/message'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -245,6 +250,13 @@ Deno.serve(async (req: Request) => {
         });
 
         const backendData = await backendResponse.json();
+        const normalizedResponse = {
+          success: Boolean(backendData?.success),
+          response: backendData?.message || '',
+          intent: backendData?.intent,
+          data: backendData?.data,
+          session: injectedSessionContext,
+        };
 
         // İşlem tamamlandı mı kontrol et (agent response'unda success ve completion flag)
         if (backendData.success && backendData.intent?.includes('complet')) {
@@ -259,10 +271,10 @@ Deno.serve(async (req: Request) => {
 
           console.log('✅ Operation completed - session closed');
           
-          backendData.response += '\n\n✅ İşlem tamamlandı. Oturumunuz kapatıldı.';
+          normalizedResponse.response += '\n\n✅ İşlem tamamlandı. Oturumunuz kapatıldı.';
         }
 
-        return new Response(JSON.stringify(backendData), {
+        return new Response(JSON.stringify(normalizedResponse), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: backendResponse.status,
         });
