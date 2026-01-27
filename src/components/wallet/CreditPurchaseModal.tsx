@@ -94,8 +94,9 @@ export default function CreditPurchaseModal({
       
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Ödeme işlemi başarısız oldu');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Ödeme işlemi başarısız oldu';
+      setError(message);
     } finally {
       setProcessing(false);
     }
@@ -214,11 +215,7 @@ export default function CreditPurchaseModal({
           {/* Özel Miktar */}
           <div className="border-t border-gray-200 pt-6">
             <div
-              onClick={() => setIsCustomMode(true)}
-              onKeyDown={(e) => e.key === 'Enter' && setIsCustomMode(true)}
-              role="button"
-              tabIndex={0}
-              className={`w-full p-4 rounded-xl border-2 transition-all cursor-pointer text-left ${
+              className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
                 isCustomMode
                   ? 'border-teal-500 bg-teal-50'
                   : 'border-gray-200 hover:border-gray-300'
@@ -226,21 +223,30 @@ export default function CreditPurchaseModal({
             >
               <div className="flex items-start gap-4">
                 {/* Selection indicator */}
-                <div
+                <button
+                  type="button"
+                  onClick={() => setIsCustomMode(true)}
                   className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-1 ${
                     isCustomMode
                       ? 'border-teal-500 bg-teal-500'
                       : 'border-gray-300'
                   }`}
+                  aria-label="Özel miktar seç"
                 >
                   {isCustomMode && (
                     <i className="ri-check-line text-white text-sm"></i>
                   )}
-                </div>
+                </button>
 
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="font-bold text-gray-900">Özel Miktar</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomMode(true)}
+                      className="font-bold text-gray-900"
+                    >
+                      Özel Miktar
+                    </button>
                     <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
                       %{BULK_DISCOUNT_PERCENT} indirim
                     </span>

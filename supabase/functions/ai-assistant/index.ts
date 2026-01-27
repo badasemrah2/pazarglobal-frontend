@@ -1,4 +1,6 @@
+// @ts-expect-error Deno remote module resolution handled by Deno runtime
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+// @ts-expect-error Deno remote module resolution handled by Deno runtime
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
@@ -6,7 +8,19 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
+type JsonRecord = Record<string, unknown>;
+type ListingRow = {
+  price: string | number | null;
+  title: string;
+  condition?: string | null;
+};
+type SearchResult = { title?: string; url?: string };
+
+const denoEnv = (globalThis as unknown as {
+  Deno?: { env?: { get?: (key: string) => string | undefined } };
+}).Deno?.env;
+
+serve(async (req: Request) => {
   // CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -19,7 +33,7 @@ serve(async (req) => {
     console.log('AI Assistant Request:', { action, category, title, condition });
 
     // OpenAI API Key kontrolü
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    const OPENAI_API_KEY = denoEnv?.get?.('OPENAI_API_KEY');
     
     if (!OPENAI_API_KEY) {
       console.error('OPENAI_API_KEY bulunamadı!');
@@ -36,8 +50,8 @@ serve(async (req) => {
     }
 
     // Supabase client oluştur
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabaseUrl = denoEnv?.get?.('SUPABASE_URL') ?? '';
+    const supabaseKey = denoEnv?.get?.('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     let prompt = '';
@@ -69,7 +83,7 @@ serve(async (req) => {
       };
     };
 
-    const tryParseJsonObject = (text: string): any | null => {
+    const tryParseJsonObject = (text: string): JsonRecord | null => {
       if (!text) return null;
       try {
         return JSON.parse(text);
@@ -91,7 +105,7 @@ serve(async (req) => {
 
     // Action'a göre prompt oluştur
     switch (action) {
-      case 'generate_keywords':
+      case 'generate_keywords': {
         if (!title || title.trim().length < 2) {
           return new Response(
             JSON.stringify({ 
@@ -128,8 +142,9 @@ Kurallar:
 - PII yok: isim, telefon, adres, whatsapp, kullanıcı bilgisi YAZMA.
 `;
         break;
+      }
 
-      case 'suggest_title':
+      case 'suggest_title': {
         if (!title || title.trim().length < 2) {
           return new Response(
             JSON.stringify({ 
@@ -154,8 +169,9 @@ Kurallar:
 
 Örnek: Kullanıcı "laptop" yazdıysa → "Dell Inspiron 15 Laptop - i7 İşlemci, 16GB RAM, 512GB SSD"`;
         break;
+      }
 
-      case 'suggest_description':
+      case 'suggest_description': {
         prompt = `"${category}" kategorisinde "${title}" başlıklı bir ürün için profesyonel bir açıklama yaz. Açıklama:
 - Emoji kullan
 - Ürün özelliklerini listele
@@ -163,8 +179,9 @@ Kurallar:
 - Maksimum 500 karakter
 - WhatsApp iletişim bilgisi ekle`;
         break;
+      }
 
-      case 'improve_text':
+      case 'improve_text': {
         prompt = `Şu ilan açıklamasını iyileştir ve daha profesyonel hale getir:
 
 "${description}"
@@ -176,8 +193,9 @@ Kurallar:
 - Maksimum 500 karakter
 - WhatsApp iletişim vurgusu yap`;
         break;
+      }
 
-      case 'suggest_price':
+      case 'suggest_price': {
         // 🎯 HİBRİT FİYAT HESAPLAMA SİSTEMİ + WEB SEARCH
         console.log('🔍 Hibrit fiyat hesaplama başlıyor...');
         
@@ -193,8 +211,9 @@ Kurallar:
             .not('price', 'is', null);
 
           if (!dbError && listings && listings.length > 0) {
+            const typedListings = listings as ListingRow[];
             // Benzer başlıklı ürünleri filtrele
-            const similarListings = listings.filter((listing: any) => {
+            const similarListings = typedListings.filter((listing) => {
               const listingTitle = listing.title.toLowerCase();
               const searchTitle = title.toLowerCase();
               const keywords = searchTitle.split(' ');
@@ -202,15 +221,21 @@ Kurallar:
             });
 
             if (similarListings.length > 0) {
-              const total = similarListings.reduce((sum: number, item: any) => sum + (parseFloat(item.price) || 0), 0);
+              const total = similarListings.reduce(
+                (sum, item) => sum + (parseFloat(String(item.price ?? 0)) || 0),
+                0
+              );
               siteAverage = total / similarListings.length;
               siteCount = similarListings.length;
               console.log(`📊 Site ortalaması: ${siteAverage.toFixed(2)} ₺ (${siteCount} ilan)`);
             } else {
               // Benzer ürün yoksa kategori ortalaması
-              const total = listings.reduce((sum: number, item: any) => sum + (parseFloat(item.price) || 0), 0);
-              siteAverage = total / listings.length;
-              siteCount = listings.length;
+              const total = typedListings.reduce(
+                (sum, item) => sum + (parseFloat(String(item.price ?? 0)) || 0),
+                0
+              );
+              siteAverage = total / typedListings.length;
+              siteCount = typedListings.length;
               console.log(`📊 Kategori ortalaması: ${siteAverage.toFixed(2)} ₺ (${siteCount} ilan)`);
             }
           }
@@ -227,7 +252,7 @@ Kurallar:
         try {
           console.log('🌐 Gerçek zamanlı piyasa verisi çekiliyor...');
           
-          const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
+          const PERPLEXITY_API_KEY = denoEnv?.get?.('PERPLEXITY_API_KEY');
           
           if (PERPLEXITY_API_KEY) {
             console.log('🔍 E-ticaret sitelerinden güncel fiyatlar aranıyor...');
@@ -285,10 +310,10 @@ Durum: ${condition || '2.el'}
             if (perplexityResponse.ok) {
               const perplexityData = await perplexityResponse.json();
               const webPriceText = perplexityData.choices[0]?.message?.content?.trim() || '';
-              const searchResults = perplexityData.search_results || [];  // ✅ YENİ FORMAT (eski: citations)
+              const searchResults: SearchResult[] = perplexityData.search_results || [];  // ✅ YENİ FORMAT (eski: citations)
               
               console.log('🌐 RAW yanıt:', webPriceText);
-              console.log('🔗 Kaynaklar:', searchResults.map((r: any) => `${r.title} - ${r.url}`).join('\n'));
+              console.log('🔗 Kaynaklar:', searchResults.map((r) => `${r.title} - ${r.url}`).join('\n'));
               
               // Fiyat aralığını parse et
               // Format: 950000-1050000 veya "950000-1050000" veya 950.000-1.050.000
@@ -310,7 +335,7 @@ Durum: ${condition || '2.el'}
                 webSearchPrice = (webSearchMin + webSearchMax) / 2;
                 
                 // Kaynak sitelerini listele
-                const sources = searchResults.map((r: any) => {
+                const sources = searchResults.map((r) => {
                   const url = r.url || '';
                   if (url.includes('sahibinden')) return '🏪 Sahibinden';
                   if (url.includes('arabam')) return '🚗 Arabam';
@@ -318,7 +343,7 @@ Durum: ${condition || '2.el'}
                   if (url.includes('hepsiburada')) return '🛒 Hepsiburada';
                   if (url.includes('trendyol')) return '🛍️ Trendyol';
                   return '🌐 Web';
-                }).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i).join(', ');
+                }).filter((v, i, a) => a.indexOf(v) === i).join(', ');
                 
                 webSearchSource = sources || 'Gerçek E-Ticaret Siteleri';
                 
@@ -493,6 +518,7 @@ Kurallar:
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
+      }
 
       default:
         throw new Error('Geçersiz action');
@@ -561,12 +587,13 @@ Kurallar:
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error: any) {
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Bir hata oluştu';
     console.error('AI Assistant Error:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || 'Bir hata oluştu' 
+        error: errorMessage
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

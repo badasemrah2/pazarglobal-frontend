@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Listing } from '../../../types/listing';
 import { toCanonicalCondition } from '../../../lib/condition';
@@ -7,6 +8,78 @@ interface ListingCardProps {
   listing: Listing;
   viewMode: 'grid' | 'list';
   index: number;
+}
+
+type MagnifierImageProps = {
+  src: string;
+  alt: string;
+  containerClassName?: string;
+  imageClassName?: string;
+  zoom?: number;
+};
+
+function MagnifierImage({
+  src,
+  alt,
+  containerClassName = '',
+  imageClassName = '',
+  zoom = 1.8,
+}: MagnifierImageProps) {
+  const lensPx = 140;
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const [lensVisible, setLensVisible] = useState(false);
+  const lensRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!lensVisible || !lensRef.current || !containerRef.current || !imageRef.current) return;
+    const img = imageRef.current;
+    const rect = containerRef.current.getBoundingClientRect();
+    const imgWidth = img.naturalWidth || rect.width;
+    const imgHeight = img.naturalHeight || rect.height;
+    
+    lensRef.current.style.backgroundImage = `url(${src})`;
+    lensRef.current.style.backgroundRepeat = 'no-repeat';
+    lensRef.current.style.backgroundSize = `${imgWidth * zoom}px ${imgHeight * zoom}px`;
+  }, [lensVisible, src, zoom]);
+
+  const handleMove = (event: MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    const clampedX = Math.max(0, Math.min(x, rect.width));
+    const clampedY = Math.max(0, Math.min(y, rect.height));
+    const percentX = (clampedX / rect.width) * 100;
+    const percentY = (clampedY / rect.height) * 100;
+
+    if (lensRef.current) {
+      lensRef.current.style.left = `${clampedX - lensPx / 2}px`;
+      lensRef.current.style.top = `${clampedY - lensPx / 2}px`;
+      lensRef.current.style.backgroundPosition = `${percentX}% ${percentY}%`;
+    }
+    if (!lensVisible) setLensVisible(true);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className={`relative overflow-hidden cursor-zoom-in ${containerClassName}`}
+      onMouseEnter={() => setLensVisible(true)}
+      onMouseLeave={() => setLensVisible(false)}
+      onMouseMove={handleMove}
+    >
+      <img ref={imageRef} src={src} alt={alt} className={imageClassName} />
+      {lensVisible && (
+        <div
+          ref={lensRef}
+          className="pointer-events-none absolute rounded-full border-2 border-white/90 shadow-2xl w-36 h-36"
+          data-lens
+        />
+      )}
+    </div>
+  );
 }
 
 export default function ListingCard({ listing, viewMode, index }: ListingCardProps) {
@@ -41,10 +114,11 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
       >
         <div className="flex">
           <div className="relative w-64 h-48 flex-shrink-0">
-            <img
+            <MagnifierImage
               src={listing.image}
               alt={listing.title}
-              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+              containerClassName="w-64 h-48 bg-gray-50"
+              imageClassName="w-full h-full object-contain"
             />
             {listing.isPremium && (
               <div className="absolute top-3 left-3 px-3 py-1 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-bold rounded-full flex items-center space-x-1">
@@ -111,11 +185,12 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
       className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all overflow-hidden cursor-pointer group"
       data-product-shop
     >
-      <div className="relative h-56 overflow-hidden">
-        <img
+      <div className="relative h-56">
+        <MagnifierImage
           src={listing.image}
           alt={listing.title}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+          containerClassName="h-56 bg-gray-50"
+          imageClassName="w-full h-full object-contain"
         />
         {listing.isPremium && (
           <div className="absolute top-3 right-3 px-3 py-1 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-bold rounded-full flex items-center space-x-1">

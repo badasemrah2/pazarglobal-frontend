@@ -556,6 +556,8 @@ export default function ManageListingsPage() {
             <button
               onClick={closeModal}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 cursor-pointer"
+              aria-label="Kapat"
+              title="Kapat"
             >
               <i className="ri-close-line text-2xl" />
             </button>
@@ -570,8 +572,9 @@ export default function ManageListingsPage() {
             
             <form onSubmit={handleUpdate} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Başlık</label>
+                <label htmlFor="edit-title" className="block text-sm font-medium text-gray-700 mb-1">Başlık</label>
                 <input
+                  id="edit-title"
                   value={formState.title}
                   onChange={e => handleFormChange('title', e.target.value)}
                   className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -579,8 +582,9 @@ export default function ManageListingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Açıklama</label>
+                <label htmlFor="edit-description" className="block text-sm font-medium text-gray-700 mb-1">Açıklama</label>
                 <textarea
+                  id="edit-description"
                   value={formState.description}
                   onChange={e => handleFormChange('description', e.target.value)}
                   rows={4}
@@ -589,8 +593,9 @@ export default function ManageListingsPage() {
               </div>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Fiyat (₺)</label>
+                  <label htmlFor="edit-price" className="block text-sm font-medium text-gray-700 mb-1">Fiyat (₺)</label>
                   <input
+                    id="edit-price"
                     type="number"
                     min="0"
                     step="0.01"
@@ -601,8 +606,9 @@ export default function ManageListingsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
+                  <label htmlFor="edit-category" className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
                   <select
+                    id="edit-category"
                     value={formState.category}
                     onChange={e => handleFormChange('category', e.target.value)}
                     className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -616,8 +622,9 @@ export default function ManageListingsPage() {
               </div>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Durum</label>
+                  <label htmlFor="edit-condition" className="block text-sm font-medium text-gray-700 mb-1">Durum</label>
                   <select
+                    id="edit-condition"
                     value={formState.condition}
                     onChange={e => handleFormChange('condition', e.target.value)}
                     className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -628,8 +635,9 @@ export default function ManageListingsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Konum</label>
+                  <label htmlFor="edit-location" className="block text-sm font-medium text-gray-700 mb-1">Konum</label>
                   <input
+                    id="edit-location"
                     value={formState.location}
                     onChange={e => handleFormChange('location', e.target.value)}
                     className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
