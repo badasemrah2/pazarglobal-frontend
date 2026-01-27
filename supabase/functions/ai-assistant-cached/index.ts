@@ -175,6 +175,8 @@ serve(async (req: Request) => {
       .from('market_price_snapshots')
       .select('*')
       .eq('product_key', productKey)
+      .eq('category', category)
+      .eq('condition', normalizedCondition)
       .single();
 
     console.log('💾 Cache lookup:', { found: !!cachedData, expired: cachedData?.expires_at < new Date().toISOString() });
@@ -196,7 +198,12 @@ serve(async (req: Request) => {
       if (cacheLooksWrong) {
         console.log('⚠️ CACHE HIT but value looks wrong; refreshing from web', { avg, phoneCacheBad, shoesCacheBad, generalCacheBad });
         // Delete bad cache entry
-        await supabase.from('market_price_snapshots').delete().eq('product_key', productKey);
+        await supabase
+          .from('market_price_snapshots')
+          .delete()
+          .eq('product_key', productKey)
+          .eq('category', category)
+          .eq('condition', normalizedCondition);
       } else {
         console.log('✅ CACHE HIT - Önbellekten dönüyor');
 
@@ -483,7 +490,7 @@ KURALLAR:
         expires_at: expiresAt.toISOString(),
         raw_data: perplexityData
       }, {
-        onConflict: 'product_key'
+        onConflict: 'product_key,category,condition'
       });
 
     if (insertError) {
