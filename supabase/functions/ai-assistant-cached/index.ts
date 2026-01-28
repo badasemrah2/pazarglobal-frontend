@@ -293,11 +293,13 @@ serve(async (req: Request) => {
     // Define product type detection early for category-specific logic
     const looksLikePhone = /\b(iphone|telefon|samsung|galaxy|xiaomi|redmi|huawei|oppo|realme|oneplus)\b/i.test(title);
     const looksLikeShoes = /\b(nike|adidas|puma|reebok|new balance|converse|vans|ayakkab|sneaker|spor ayakkab|kosu)\b/i.test(title);
+    const looksLikeCar = /\b(volvo|bmw|mercedes|audi|toyota|honda|ford|fiat|renault|citroen|hyundai|kia|skoda|seat|nissan|peugeot|opel|mazda|volkswagen|vw|xc\d{2}|x\d{1,2}|golf|passat|civic|corolla|focus|clio|megane)\b/i.test(title);
+    const hasModelYear = /\b(19|20)\d{2}\b/.test(title);
 
     // Category-specific search domains and prompts
     const isShoeCategory = looksLikeShoes || /ayakkab|spor|kosu/i.test(category);
     const isPhoneCategory = looksLikePhone || /telefon|elektronik/i.test(category);
-    const isCarCategory = /araba|otomobil|ara[cç]/i.test(category);
+    const isCarCategory = /araba|otomobil|ara[cç]|otomotiv/i.test(category) || looksLikeCar;
 
     const searchDomains = isShoeCategory
       ? ['trendyol.com', 'hepsiburada.com', 'sportive.com.tr', 'superstep.com.tr', 'sneakscloud.com']
@@ -365,13 +367,29 @@ KURALLAR:
     console.log('🔗 Kaynaklar:', searchResults.length);
 
     // Parse fiyat (robust): accept either a range (X-Y) or a single price.
+    const noPriceSignals = /bulunmamaktadır|bulunam(?:adı|adım|iyor)|bulunmuyor|sadece aksesuar|oyuncak|hot wheels/i.test(priceText);
+    if (noPriceSignals && isCarCategory) {
+      throw new Error('Araç için güvenilir fiyat bulunamadı');
+    }
+
+    const tlCandidates = (priceText.match(/\b\d{1,3}(?:[.,]\d{3})+\s*(?:TL|₺|lira|try)\b/gi) || [])
+      .map(s => s.replace(/[^0-9]/g, ''))
+      .filter(s => s.length >= 4);
+
+    const rangeCandidates = (priceText.match(/\b\d{4,}\s*-\s*\d{4,}\b/g) || [])
+      .map(s => s.replace(/\s/g, ''));
+
     const cleanText = priceText
       .replace(/TL|₺|lira|try/gi, '')
       .replace(/[.,]/g, '')
       .trim();
 
     // Accept values like "25-35 bin" too (Perplexity often answers like that).
-    const numbers = cleanText.match(/\d{2,}/g) || [];
+    const numbers = (tlCandidates.length >= 2)
+      ? tlCandidates
+      : (rangeCandidates.length > 0)
+        ? rangeCandidates[0].split('-')
+        : (cleanText.match(/\d{2,}/g) || []);
     let minPrice = 0;
     let maxPrice = 0;
 
@@ -406,6 +424,17 @@ KURALLAR:
     if (looksLikePhone && maxPrice > 0 && maxPrice < 1000) {
       minPrice = minPrice * 1000;
       maxPrice = maxPrice * 1000;
+    }
+
+    // Heuristic: car listings should not be tiny values
+    if (isCarCategory || looksLikeCar) {
+      const avgCandidate = (minPrice + maxPrice) / 2;
+      if (hasModelYear && avgCandidate < 200000) {
+        throw new Error(`Araç fiyatı mantıksız (${avgCandidate} TL) - veri güvenilir değil`);
+      }
+      if (!hasModelYear && avgCandidate < 50000) {
+        throw new Error(`Araç fiyatı mantıksız (${avgCandidate} TL) - veri güvenilir değil`);
+      }
     }
 
     // Heuristic: Nike/Adidas shoes - realistic price range is 500-12000 TL (Turkey 2024-2026)
