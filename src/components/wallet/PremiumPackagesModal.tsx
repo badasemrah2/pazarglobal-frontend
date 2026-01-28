@@ -24,9 +24,9 @@ const PREMIUM_PACKAGES = [
     bonusCredits: 55, // Hediye kredi (1 ilan = 11 TL değerinde)
     duration: 7,
     features: [
-      'İlanlarınız listenin üst sıralarında',
+      'İlanlarınız üst sıralarda görünür',
       '⭐ Gold rozeti',
-      '7 gün boyunca öne çıkın',
+      '7 gün boyunca öne çıkma',
     ],
     popular: false,
   },
@@ -42,9 +42,9 @@ const PREMIUM_PACKAGES = [
     bonusCredits: 110, // Hediye kredi (2 ilan = 22 TL değerinde)
     duration: 15,
     features: [
-      'İlanlarınız en üst sıralarda',
+      'İlanlarınız üst sıralarda görünür',
       '💎 Platinum rozeti',
-      '15 gün boyunca öne çıkın',
+      '15 gün boyunca öne çıkma',
       'Öne çıkan ilanlar bölümünde',
     ],
     popular: true,
@@ -61,10 +61,10 @@ const PREMIUM_PACKAGES = [
     bonusCredits: 165, // Hediye kredi (3 ilan = 33 TL değerinde)
     duration: 30,
     features: [
-      'İlanlarınız HER ZAMAN en üstte',
+      'İlanlarınız üst sıralarda görünür',
       '💠 Diamond rozeti',
-      '1 ay boyunca maksimum görünürlük',
-      'Ana sayfada öne çıkan',
+      '30 gün boyunca öne çıkma',
+      'Öne çıkan ilanlar bölümünde',
       'Öncelikli destek',
     ],
     popular: false,
@@ -228,10 +228,10 @@ export default function PremiumPackagesModal({
               Premium Avantajları
             </h4>
             <ul className="text-xs text-orange-700 space-y-1">
-              <li>✓ İlanlarınız arama sonuçlarında en üstte</li>
-              <li>✓ Profilinizde premium rozeti</li>
-              <li>✓ Daha fazla görünürlük, daha hızlı satış</li>
-              <li>✓ Hediye kredi ile ilan yayınlama hakkı</li>
+              <li>✓ İlanlarınız arama sonuçlarında üst sıralarda görünür</li>
+              <li>✓ Profilinizde premium rozet</li>
+              <li>✓ Öne çıkan ilanlar bölümünde görünürlük</li>
+              <li>✓ Hediye kredi ile ilan yayınlama</li>
             </ul>
           </div>
 
@@ -256,7 +256,7 @@ export default function PremiumPackagesModal({
 
           {/* Payment Info */}
           <p className="text-xs text-gray-500 text-center mt-3">
-            Ödeme sonrası premium üyeliğiniz anında aktif olur
+            Ödeme sistemi aktif edildiğinde premium üyeliğiniz anında açılır
           </p>
 
           {/* Payment Methods */}

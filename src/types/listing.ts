@@ -25,4 +25,5 @@ export interface FilterState {
   condition: string[];
   isPremium: boolean;
   dateRange: string;
+  searchText: string;
 }

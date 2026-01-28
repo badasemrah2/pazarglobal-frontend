@@ -4,37 +4,27 @@ const whatsappFeatures = [
   {
     icon: 'ri-advertisement-line',
     title: 'WhatsApp\'tan İlan Ver',
-    description: 'Fotoğraf gönderin, sesli mesaj atın veya yazın. AI anında ilanınızı oluşturur ve yayınlar.'
+    description: 'Fotoğraf gönderin veya yazın. AI ilan taslağınızı hızlıca oluşturur.'
   },
   {
-    icon: 'ri-save-line',
-    title: 'İlan Kaydet & Takip Et',
-    description: 'Beğendiğiniz ilanları kaydedin, fiyat değişikliklerinden anında haberdar olun.'
+    icon: 'ri-search-eye-line',
+    title: 'İlan Arama',
+    description: 'WhatsApp üzerinden arama yapın, uygun ilanları hızlıca bulun.'
   },
   {
-    icon: 'ri-line-chart-line',
-    title: 'Piyasa Araştırması',
-    description: 'Ürününüzün piyasa değerini öğrenin, benzer ürünlerin fiyatlarını karşılaştırın.'
+    icon: 'ri-upload-cloud-2-line',
+    title: 'Fotoğrafla İlan',
+    description: 'Ürün fotoğrafı gönderin, ilan oluşturma sürecini kolayca başlatın.'
   },
   {
     icon: 'ri-price-tag-3-line',
-    title: 'Akıllı Fiyat Önerisi',
-    description: 'AI, sitedeki ve piyasadaki fiyatları analiz ederek size en uygun fiyatı önerir.'
+    title: 'Piyasa Fiyat Araştırması',
+    description: 'AI ile güncel piyasa fiyatlarını araştırın ve fiyat aralığı hakkında fikir edinin.'
   },
   {
-    icon: 'ri-notification-3-line',
-    title: 'Yeni Ürün Bildirimleri',
-    description: 'İlgilendiğiniz kategorilerde yeni ürünler yayınlandığında anında bildirim alın.'
-  },
-  {
-    icon: 'ri-exchange-dollar-line',
-    title: 'Fiyat Değişikliği Takibi',
-    description: 'Kaydettiğiniz ürünlerin fiyatları değiştiğinde WhatsApp\'tan bildirim alın.'
-  },
-  {
-    icon: 'ri-star-line',
-    title: 'Yorum & Puan Bildirimleri',
-    description: 'Ürünlerinize yapılan yorumlar ve puanlamalardan anında haberdar olun.'
+    icon: 'ri-check-double-line',
+    title: 'Yayınla / Sil',
+    description: 'İlanlarınızı WhatsApp üzerinden yayınlayın veya kaldırın.'
   },
   {
     icon: 'ri-customer-service-2-line',
@@ -78,12 +68,12 @@ export default function WhatsAppAI() {
 
           <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
             Twilio entegrasyonu ile WhatsApp üzerinden çalışan yapay zeka asistanımız, 
-            ilan verme, piyasa araştırması, fiyat takibi ve daha fazlası için 7/24 yanınızda.
+            ilan oluşturma, ilan arama ve temel yönetim işlemleri için 7/24 yanınızda.
           </p>
         </motion.div>
 
         {/* Features Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+        <div className="grid md:grid-cols-3 gap-6 mb-16">
           {whatsappFeatures.map((feature, index) => (
             <motion.div
               key={index}
@@ -174,8 +164,8 @@ export default function WhatsAppAI() {
             viewport={{ once: true }}
             transition={{ delay: 0.4 }}
           >
-            <div className="text-3xl font-bold text-teal-600 mb-2">Ücretsiz</div>
-            <p className="text-sm text-gray-600">WhatsApp AI asistan tamamen ücretsiz</p>
+            <div className="text-3xl font-bold text-teal-600 mb-2">Kolay</div>
+            <p className="text-sm text-gray-600">WhatsApp üzerinden hızlı ve pratik kullanım</p>
           </motion.div>
         </div>
       </div>

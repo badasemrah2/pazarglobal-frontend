@@ -14,7 +14,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { corsHeaders } from '../_shared/cors.ts';
 
 // @ts-ignore - Deno global
-const BACKEND_URL = Deno.env.get('BACKEND_URL') || 'https://pazarglobal-agent-backend-production-4ec8.up.railway.app';
+const BACKEND_URL = Deno.env.get('BACKEND_URL') || 'https://pazarglobal-agent-production.up.railway.app';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const STORAGE_BUCKET = Deno.env.get('SUPABASE_STORAGE_BUCKET') || 'product-images';
 const SESSION_DURATION_MINUTES = 10;

@@ -2,11 +2,10 @@ import { motion } from 'framer-motion';
 
 const premiumFeatures = [
   'Öncelikli listeleme',
-  'AI fotoğraf iyileştirme',
-  'Sınırsız ilan',
+  'Premium rozet',
+  'Öne çıkan ilanlar',
+  'Hediye kredi',
   'Özel destek',
-  'Analitik dashboard',
-  'Reklamsız deneyim',
 ];
 
 export default function CTASection() {
@@ -122,7 +121,7 @@ export default function CTASection() {
               </motion.button>
 
               <p className="text-center text-sm text-gray-500 mt-6">
-                İlk 30 gün ücretsiz • İstediğin zaman iptal et
+                Paketle birlikte hediye kredi kazan
               </p>
             </motion.div>
           </div>

@@ -58,6 +58,7 @@ export default function ListingsPage() {
     condition: [],
     isPremium: false,
     dateRange: 'all',
+    searchText: '',
   });
 
   useEffect(() => {
@@ -101,8 +102,18 @@ export default function ListingsPage() {
           },
         }));
 
+        // Apply client-side search filter
+        let searchFiltered = convertedListings;
+        if (filters.searchText.trim()) {
+          const searchLower = filters.searchText.toLowerCase();
+          searchFiltered = convertedListings.filter(item => 
+            item.title.toLowerCase().includes(searchLower) ||
+            item.description.toLowerCase().includes(searchLower)
+          );
+        }
+
         // Sort the listings
-        const sortedListings = [...convertedListings];
+        const sortedListings = [...searchFiltered];
         switch (sortBy) {
           case 'newest':
             sortedListings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -145,6 +156,7 @@ export default function ListingsPage() {
       condition: [],
       isPremium: false,
       dateRange: 'all',
+      searchText: '',
     });
   };
 
@@ -166,6 +178,29 @@ export default function ListingsPage() {
             </p>
           </div>
 
+          {/* Search Bar */}
+          <div className="mb-6">
+            <div className="relative max-w-2xl">
+              <i className="ri-search-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl" />
+              <input
+                type="text"
+                value={filters.searchText}
+                onChange={(e) => handleFilterChange({ searchText: e.target.value })}
+                placeholder="Başlık veya açıklamada ara..."
+                className="w-full pl-12 pr-4 py-3.5 bg-white rounded-full shadow-md text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+              {filters.searchText && (
+                <button
+                  onClick={() => handleFilterChange({ searchText: '' })}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                  aria-label="Aramayı temizle"
+                >
+                  <i className="ri-close-circle-fill text-xl" />
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Controls */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
             <div className="flex items-center space-x-4">
@@ -182,7 +217,7 @@ export default function ListingsPage() {
                 )}
               </button>
 
-              {(filters.categories.length > 0 || filters.condition.length > 0 || filters.isPremium || filters.location) && (
+              {(filters.categories.length > 0 || filters.condition.length > 0 || filters.isPremium || filters.location || filters.searchText) && (
                 <button
                   onClick={clearFilters}
                   className="text-sm text-gray-600 hover:text-red-600 transition-colors whitespace-nowrap cursor-pointer"

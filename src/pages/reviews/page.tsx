@@ -43,7 +43,7 @@ const reviews: Review[] = [
     userAvatar: 'https://readdy.ai/api/search-image?query=professional%20turkish%20man%20portrait%20smiling%20confident%20face%20business%20style%20clean%20background&width=100&height=100&seq=user-3&orientation=squarish',
     rating: 4,
     date: '1 hafta önce',
-    comment: 'Platform çok kullanışlı. AI fotoğraf iyileştirme özelliği ürünlerimi çok daha profesyonel gösteriyor. Tek eksiği bazen yoğunlukta yanıt süresi uzayabiliyor.',
+    comment: 'Platform çok kullanışlı. AI başlık ve açıklama önerisi sayesinde ilanlarımı çok daha hızlı hazırlıyorum. Tek eksiği bazen yoğunlukta yanıt süresi uzayabiliyor.',
     productName: 'Samsung Galaxy S23',
     verified: true,
     helpful: 15
@@ -87,7 +87,7 @@ const reviews: Review[] = [
     userAvatar: 'https://readdy.ai/api/search-image?query=professional%20turkish%20man%20portrait%20smiling%20confident%20young%20face%20casual%20style%20clean%20background&width=100&height=100&seq=user-7&orientation=squarish',
     rating: 5,
     date: '3 hafta önce',
-    comment: 'Dolandırıcılık tespiti özelliği sayesinde güvenle alışveriş yapabiliyorum. AI şüpheli ilanları işaretliyor, çok güvenli hissediyorum.',
+    comment: 'WebChat üzerinden sesli komut ile ilan oluşturmak çok pratik. Mikrofona konuşuyorum, AI anlıyor ve ilan hazırlıyor. Gerçekten çok hızlı.',
     productName: 'Canon EOS R6',
     verified: true,
     helpful: 27
@@ -98,7 +98,7 @@ const reviews: Review[] = [
     userAvatar: 'https://readdy.ai/api/search-image?query=professional%20turkish%20woman%20portrait%20smiling%20cheerful%20face%20modern%20style%20clean%20background&width=100&height=100&seq=user-8&orientation=squarish',
     rating: 5,
     date: '3 hafta önce',
-    comment: 'Fiyat değişikliği bildirimleri harika! Takip ettiğim ürünün fiyatı düşünce hemen WhatsApp\'tan bildirim aldım ve hemen aldım.',
+    comment: 'Doğal dil ile arama özelliği harika! "500 TL altında az kullanılmış tablet" yazıyorum, AI tam istediğim sonuçları getiriyor.',
     productName: 'iPad Pro 12.9',
     verified: true,
     helpful: 16
@@ -109,7 +109,7 @@ const reviews: Review[] = [
     userAvatar: 'https://readdy.ai/api/search-image?query=professional%20turkish%20man%20portrait%20smiling%20friendly%20mature%20face%20business%20style%20clean%20background&width=100&height=100&seq=user-9&orientation=squarish',
     rating: 4,
     date: '1 ay önce',
-    comment: 'Analitik dashboard çok detaylı. İlanlarımın performansını takip edip stratejimi buna göre ayarlıyorum. Satışlarım %40 arttı.',
+    comment: 'Piyasa fiyat araştırması özelliği çok işime yarıyor. AI benzer ürünlerin fiyatlarını bulup bana öneriyor, doğru fiyatlandırma yapabiliyorum.',
     productName: 'Dell XPS 15',
     verified: true,
     helpful: 20
@@ -120,7 +120,7 @@ const reviews: Review[] = [
     userAvatar: 'https://readdy.ai/api/search-image?query=professional%20turkish%20woman%20portrait%20smiling%20confident%20face%20elegant%20style%20clean%20background&width=100&height=100&seq=user-10&orientation=squarish',
     rating: 5,
     date: '1 ay önce',
-    comment: 'Çoklu dil desteği sayesinde yabancı alıcılara da satış yapabiliyorum. AI otomatik çeviri yapıyor, çok pratik.',
+    comment: 'WhatsApp üzerinden ilan vermek çok kolay. Fotoğraf gönderiyorum, birkaç mesaj ile ilanım hazır. Çok pratik ve hızlı.',
     productName: 'Bose QuietComfort 45',
     verified: true,
     helpful: 14

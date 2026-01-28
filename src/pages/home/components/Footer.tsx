@@ -1,4 +1,12 @@
+import { useState } from 'react';
+import LegalModal from '../../../components/legal/LegalModal';
+
 export default function Footer() {
+  const [legalModal, setLegalModal] = useState<{ isOpen: boolean; type: 'privacy' | 'terms' | 'kvkk' }>({ 
+    isOpen: false, 
+    type: 'privacy' 
+  });
+
   const handleNavigation = (path: string) => {
     if (window.REACT_APP_NAVIGATE) {
       window.REACT_APP_NAVIGATE(path);
@@ -111,14 +119,28 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors cursor-pointer">
+                <button 
+                  onClick={() => setLegalModal({ isOpen: true, type: 'privacy' })} 
+                  className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+                >
                   Gizlilik Politikası
-                </a>
+                </button>
               </li>
               <li>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors cursor-pointer">
+                <button 
+                  onClick={() => setLegalModal({ isOpen: true, type: 'terms' })} 
+                  className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+                >
                   Kullanım Koşulları
-                </a>
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => setLegalModal({ isOpen: true, type: 'kvkk' })} 
+                  className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  KVKK Aydınlatma Metni
+                </button>
               </li>
             </ul>
           </div>
@@ -127,18 +149,20 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
           <p className="text-gray-400 text-sm">
-            © 2024 PazarGlobal. Tüm hakları saklıdır.
+            © 2025 PazarGlobal. Tüm hakları saklıdır.
           </p>
-          <a 
-            href="https://readdy.ai/?origin=logo" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-gray-400 hover:text-white text-sm transition-colors cursor-pointer"
-          >
-            Powered by Readdy
-          </a>
+          <p className="text-gray-400 text-sm">
+            Powered by PazarGlobal
+          </p>
         </div>
       </div>
+
+      {/* Legal Modal */}
+      <LegalModal 
+        isOpen={legalModal.isOpen} 
+        onClose={() => setLegalModal({ ...legalModal, isOpen: false })} 
+        type={legalModal.type} 
+      />
     </footer>
   );
 }

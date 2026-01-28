@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import TopNavigation from '../../components/feature/TopNavigation';
+import emrahImage from '../../../Logo/emrah badaş.jpg';
+import LegalModal from '../../components/legal/LegalModal';
 
 export default function AboutPage() {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [legalModal, setLegalModal] = useState<{ isOpen: boolean; type: 'privacy' | 'terms' | 'kvkk' }>({ 
+    isOpen: false, 
+    type: 'privacy' 
+  });
 
   useEffect(() => {
     const handleScroll = () => {
@@ -49,37 +55,20 @@ export default function AboutPage() {
 
   const team = [
     {
-      name: 'Ayşe Yılmaz',
+      name: 'EMRAH BADAŞ',
       role: 'Kurucu & CEO',
-      image: 'https://readdy.ai/api/search-image?query=professional%20turkish%20businesswoman%20ceo%20in%20modern%20office%20wearing%20elegant%20business%20suit%20confident%20smile%20natural%20lighting%20corporate%20portrait%20style%20simple%20clean%20background&width=400&height=400&seq=team1&orientation=squarish',
-      bio: '15 yıllık teknoloji ve e-ticaret deneyimi',
-    },
-    {
-      name: 'Mehmet Kaya',
-      role: 'CTO',
-      image: 'https://readdy.ai/api/search-image?query=professional%20turkish%20male%20technology%20executive%20cto%20in%20modern%20tech%20office%20wearing%20smart%20casual%20attire%20friendly%20expression%20natural%20lighting%20corporate%20portrait%20simple%20background&width=400&height=400&seq=team2&orientation=squarish',
-      bio: 'AI ve makine öğrenmesi uzmanı',
-    },
-    {
-      name: 'Zeynep Demir',
-      role: 'Ürün Direktörü',
-      image: 'https://readdy.ai/api/search-image?query=professional%20turkish%20businesswoman%20product%20director%20in%20creative%20workspace%20wearing%20modern%20business%20casual%20warm%20smile%20natural%20lighting%20corporate%20portrait%20clean%20background&width=400&height=400&seq=team3&orientation=squarish',
-      bio: 'Kullanıcı deneyimi ve ürün geliştirme lideri',
-    },
-    {
-      name: 'Can Özkan',
-      role: 'Pazarlama Direktörü',
-      image: 'https://readdy.ai/api/search-image?query=professional%20turkish%20male%20marketing%20director%20in%20modern%20creative%20office%20wearing%20stylish%20business%20casual%20confident%20look%20natural%20lighting%20corporate%20portrait%20simple%20background&width=400&height=400&seq=team4&orientation=squarish',
-      bio: 'Dijital pazarlama ve büyüme stratejisti',
+      image: emrahImage,
+      bio: 'Uzakyol Kaptanı | Founder & Chief AI Architect',
     },
   ];
 
   const timeline = [
-    { year: '2020', title: 'Kuruluş', description: 'PazarGlobal fikri doğdu ve ilk adımlar atıldı' },
-    { year: '2021', title: 'Beta Lansmanı', description: '10.000 kullanıcı ile beta testleri başladı' },
-    { year: '2022', title: 'AI Entegrasyonu', description: 'Yapay zeka destekli özellikler eklendi' },
-    { year: '2023', title: 'Büyük Büyüme', description: '500K+ kullanıcıya ulaştık' },
-    { year: '2024', title: 'Global Genişleme', description: 'Uluslararası pazarlara açıldık' },
+    { year: 'Eylül 2025', title: 'Fikrin Doğuşu', description: 'WhatsApp üzerinden AI ile ilan verme fikri ortaya çıktı' },
+    { year: 'Ekim 2025', title: 'İlk Adımlar', description: 'Agent sistemi ve backend mimarisi tasarlandı' },
+    { year: 'Kasım 2025', title: 'Geliştirme', description: 'Paralel agent sistemi ve Twilio entegrasyonu tamamlandı' },
+    { year: 'Aralık 2025', title: 'Test Süreci', description: 'WhatsApp ve web chat testleri başladı' },
+    { year: 'Ocak 2026', title: 'Yayına Hazırlık', description: 'Frontend ve backend entegrasyonları tamamlandı' },
+    { year: 'Şubat 2026', title: 'Lansman', description: 'PazarGlobal yayın hayatına başladı' },
   ];
 
   return (
@@ -376,7 +365,24 @@ export default function AboutPage() {
               <div className="space-y-2">
                 <a href="#" className="block text-gray-400 hover:text-white transition-colors text-sm cursor-pointer">Yardım Merkezi</a>
                 <a href="#" className="block text-gray-400 hover:text-white transition-colors text-sm cursor-pointer">İletişim</a>
-                <a href="#" className="block text-gray-400 hover:text-white transition-colors text-sm cursor-pointer">Gizlilik</a>
+                <button 
+                  onClick={() => setLegalModal({ isOpen: true, type: 'privacy' })} 
+                  className="block text-gray-400 hover:text-white transition-colors text-sm cursor-pointer text-left"
+                >
+                  Gizlilik Politikası
+                </button>
+                <button 
+                  onClick={() => setLegalModal({ isOpen: true, type: 'terms' })} 
+                  className="block text-gray-400 hover:text-white transition-colors text-sm cursor-pointer text-left"
+                >
+                  Kullanım Koşulları
+                </button>
+                <button 
+                  onClick={() => setLegalModal({ isOpen: true, type: 'kvkk' })} 
+                  className="block text-gray-400 hover:text-white transition-colors text-sm cursor-pointer text-left"
+                >
+                  KVKK Aydınlatma Metni
+                </button>
               </div>
             </div>
             
@@ -398,19 +404,21 @@ export default function AboutPage() {
           
           <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400 text-sm mb-4 md:mb-0">
-              © 2024 PazarGlobal. Tüm hakları saklıdır.
+              © 2025 PazarGlobal. Tüm hakları saklıdır.
             </p>
-            <a 
-              href="https://readdy.ai/?origin=logo" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-gray-400 hover:text-white text-sm transition-colors cursor-pointer"
-            >
-              Powered by Readdy
-            </a>
+            <p className="text-gray-400 text-sm">
+              Powered by PazarGlobal
+            </p>
           </div>
         </div>
       </footer>
+
+      {/* Legal Modal */}
+      <LegalModal 
+        isOpen={legalModal.isOpen} 
+        onClose={() => setLegalModal({ ...legalModal, isOpen: false })} 
+        type={legalModal.type} 
+      />
     </div>
   );
 }

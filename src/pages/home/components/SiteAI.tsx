@@ -3,74 +3,38 @@ import { motion } from 'framer-motion';
 const siteAIFeatures = [
   {
     icon: 'ri-magic-line',
-    title: 'Gelişmiş İlan Oluşturma',
-    description: 'Fotoğraf yükleyin, AI otomatik olarak başlık, açıklama, kategori ve fiyat önerisi oluşturur. Ürün özelliklerini akıllıca tespit eder.',
+    title: 'AI Destekli İlan Oluşturma',
+    description: 'Başlık, açıklama ve kategori için akıllı önerilerle ilanınızı daha hızlı hazırlayın.',
     color: 'from-purple-500 to-pink-500'
   },
   {
-    icon: 'ri-image-edit-line',
-    title: 'AI Fotoğraf İyileştirme',
-    description: 'Arka plan temizleme, renk düzeltme, netlik artırma, otomatik kırpma ve profesyonel görünüm için AI filtreleri.',
+    icon: 'ri-mic-line',
+    title: 'Sesli Asistan (Web)',
+    description: 'Web chat üzerinden sesli konuşun; ses metne çevrilir, yanıtlar tekrar seslendirilebilir.',
     color: 'from-blue-500 to-cyan-500'
   },
   {
     icon: 'ri-search-eye-line',
     title: 'Akıllı Ürün Arama',
-    description: 'Doğal dille arama yapın. "500 TL altında az kullanılmış iPhone" gibi karmaşık sorguları anlayıp en iyi sonuçları getirir.',
+    description: 'Doğal dille arama yapın ve aradığınız ürüne daha hızlı ulaşın.',
     color: 'from-green-500 to-emerald-500'
   },
   {
-    icon: 'ri-bar-chart-box-line',
-    title: 'Detaylı Piyasa Analizi',
-    description: 'Ürününüzün piyasa değeri, fiyat trendleri, talep analizi, rekabet durumu ve satış tahminleri hakkında kapsamlı raporlar.',
+    icon: 'ri-price-tag-3-line',
+    title: 'Piyasa Fiyat Araştırması',
+    description: 'AI ile güncel piyasa fiyatlarını araştırın ve fiyat aralığı hakkında fikir edinin.',
     color: 'from-orange-500 to-red-500'
   },
   {
-    icon: 'ri-robot-2-line',
-    title: 'Otomatik Fiyat Optimizasyonu',
-    description: 'AI, piyasa verilerini, talep-arz dengesini ve rekabeti analiz ederek dinamik fiyat önerileri sunar ve satış şansınızı artırır.',
+    icon: 'ri-check-line',
+    title: 'İlan Yönetimi',
+    description: 'İlanlarınızı yayınlama ve silme gibi temel işlemleri AI ile yönetin.',
     color: 'from-indigo-500 to-purple-500'
   },
   {
-    icon: 'ri-chat-smile-3-line',
-    title: 'Akıllı Müşteri Yanıtları',
-    description: 'Alıcıların sorularına AI destekli otomatik yanıtlar. Ürün detayları, teslimat, ödeme gibi konularda anında bilgi.',
-    color: 'from-pink-500 to-rose-500'
-  },
-  {
-    icon: 'ri-translate-2',
-    title: 'Çoklu Dil Desteği',
-    description: 'İlanlarınızı otomatik olarak farklı dillere çevirin. Uluslararası alıcılara ulaşın, daha geniş kitleye satış yapın.',
-    color: 'from-teal-500 to-cyan-500'
-  },
-  {
-    icon: 'ri-shield-check-line',
-    title: 'Dolandırıcılık Tespiti',
-    description: 'AI, şüpheli ilanları, sahte profilleri ve güvenli olmayan işlemleri otomatik olarak tespit eder ve sizi uyarır.',
-    color: 'from-red-500 to-orange-500'
-  },
-  {
-    icon: 'ri-lightbulb-flash-line',
-    title: 'Kişiselleştirilmiş Öneriler',
-    description: 'Arama geçmişiniz ve ilgi alanlarınıza göre size özel ürün önerileri. İlginizi çekebilecek ilanları kaçırmayın.',
-    color: 'from-yellow-500 to-orange-500'
-  },
-  {
-    icon: 'ri-calendar-check-line',
-    title: 'Otomatik İlan Yenileme',
-    description: 'İlanlarınız belirli aralıklarla otomatik olarak yenilenir ve listenin üstünde kalır. Daha fazla görünürlük.',
-    color: 'from-blue-500 to-indigo-500'
-  },
-  {
-    icon: 'ri-message-3-line',
-    title: 'Sesli Komut Desteği',
-    description: 'Mikrofona konuşarak ilan oluşturun, arama yapın veya işlem gerçekleştirin. Eller serbest, hızlı ve kolay.',
-    color: 'from-purple-500 to-indigo-500'
-  },
-  {
-    icon: 'ri-dashboard-line',
-    title: 'Gelişmiş Analitik Dashboard',
-    description: 'İlan performansı, görüntülenme sayıları, tıklama oranları, mesaj istatistikleri ve satış analizleri tek ekranda.',
+    icon: 'ri-chat-3-line',
+    title: 'WebChat Desteği',
+    description: 'Site içi sohbet üzerinden hızlı yardım ve yönlendirme alın.',
     color: 'from-cyan-500 to-blue-500'
   }
 ];
@@ -104,13 +68,12 @@ export default function SiteAI() {
             Site Üzerinde Yapay Zeka ile
             <br />
             <span className="bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 bg-clip-text text-transparent">
-              Sınırsız Özellikler
+              Daha Kolay İlan Yönetimi
             </span>
           </h2>
 
           <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            Web sitemizdeki AI asistan, WhatsApp versiyonundan çok daha güçlü! 
-            Gelişmiş özellikler, detaylı analizler ve profesyonel araçlarla tam kontrol sizde.
+            Web sitemizdeki AI asistan, ilan oluşturma ve arama süreçlerinde pratik destek sunar.
           </p>
         </motion.div>
 
@@ -124,7 +87,7 @@ export default function SiteAI() {
           <div className="flex flex-col md:flex-row items-center justify-center gap-8">
             <div className="text-white">
               <div className="text-sm font-semibold mb-2 opacity-90">WhatsApp AI</div>
-              <div className="text-3xl font-bold">8 Özellik</div>
+              <div className="text-3xl font-bold">Temel İşlemler</div>
             </div>
             
             <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
@@ -133,12 +96,12 @@ export default function SiteAI() {
 
             <div className="text-white">
               <div className="text-sm font-semibold mb-2 opacity-90">Site AI</div>
-              <div className="text-3xl font-bold">12+ Özellik</div>
+              <div className="text-3xl font-bold">Daha Geniş Kontrol</div>
             </div>
           </div>
           
           <p className="text-white/90 mt-6 text-lg">
-            Site üzerindeki AI asistan %50 daha fazla özellik ve %300 daha hızlı işlem gücü sunuyor!
+            Site üzerinde ilan oluşturma ve arama için daha kapsamlı bir deneyim sunar.
           </p>
         </motion.div>
 
@@ -207,10 +170,10 @@ export default function SiteAI() {
         {/* Stats */}
         <div className="grid md:grid-cols-4 gap-6 mt-12">
           {[
-            { value: '1M+', label: 'AI İşlem/Gün' },
-            { value: '99.9%', label: 'Doğruluk Oranı' },
-            { value: '<1sn', label: 'Yanıt Süresi' },
-            { value: '24/7', label: 'Kesintisiz Hizmet' }
+            { value: 'WebChat', label: 'Site içi sohbet' },
+            { value: 'AI Yardım', label: 'Başlık ve açıklama' },
+            { value: 'Doğal Dil', label: 'Arama desteği' },
+            { value: 'İlan', label: 'Yayınla / Sil' }
           ].map((stat, index) => (
             <motion.div
               key={index}
