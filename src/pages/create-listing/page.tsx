@@ -11,6 +11,11 @@ import { useAuthStore } from '../../stores/authStore';
 import { fetchCategoryOptions } from '../../services/agentApi';
 import { FALLBACK_CATEGORY_OPTIONS } from '../../constants/categories';
 
+// Browser native UUID generator (no external package needed)
+function generateUUID(): string {
+  return crypto.randomUUID();
+}
+
 type FormData = {
   title: string;
   description: string;
@@ -757,9 +762,13 @@ export default function CreateListingPage() {
         attributes: {},
       };
 
+      // Generate listing ID upfront (Supabase may not have default)
+      const listingId = generateUUID();
+
       const { data, error } = await supabase
         .from('listings')
         .insert({
+          id: listingId,
           user_id: userId,
           title: formData.title,
           description: formData.description,

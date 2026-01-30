@@ -234,14 +234,18 @@ Deno.serve(async (req: Request) => {
           .filter(Boolean);
 
         const backendPayload = {
-          message: requestData.message,
-          session_id: activeSession.session_token || activeSession.id || phone,
           user_id: activeSession.user_id,
-          media_url: mediaUrls[0] || null,
-          media_urls: mediaUrls,
+          phone,
+          message: requestData.message,
+          conversation_history: requestData.conversation_history || [],
+          media_paths: mediaUrls,
+          media_type: requestData.media_type || null,
+          draft_listing_id: requestData.draft_listing_id,
+          session_token: activeSession.session_token || activeSession.id || phone,
+          user_context: requestData.user_context,
         };
 
-        const backendResponse = await fetch(buildBackendUrl('/webchat/message'), {
+        const backendResponse = await fetch(buildBackendUrl('/agent/run'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -252,7 +256,7 @@ Deno.serve(async (req: Request) => {
         const backendData = await backendResponse.json();
         const normalizedResponse = {
           success: Boolean(backendData?.success),
-          response: backendData?.message || '',
+          response: backendData?.response || backendData?.message || '',
           intent: backendData?.intent,
           data: backendData?.data,
           session: injectedSessionContext,
