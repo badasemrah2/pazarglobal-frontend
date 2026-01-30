@@ -209,10 +209,11 @@ export default function ReviewsPage() {
                       <span className="text-sm font-medium text-gray-700">{dist.rating}</span>
                       <i className="ri-star-fill text-amber-500 text-sm" />
                     </div>
-                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-amber-500 to-orange-500"
-                        style={{ width: `${dist.percentage}%` }}
+                    <div className="flex-1">
+                      <progress
+                        value={dist.percentage}
+                        max={100}
+                        className="w-full h-2 rounded-full bg-gray-200 accent-amber-500"
                       />
                     </div>
                     <span className="text-sm text-gray-600 w-8">{dist.count}</span>

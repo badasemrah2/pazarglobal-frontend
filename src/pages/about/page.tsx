@@ -389,13 +389,25 @@ export default function AboutPage() {
             <div>
               <h3 className="font-semibold mb-4">Bizi Takip Edin</h3>
               <div className="flex space-x-4">
-                <a href="#" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer">
+                <a
+                  href="#"
+                  aria-label="Facebook"
+                  className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer"
+                >
                   <i className="ri-facebook-fill text-lg" />
                 </a>
-                <a href="#" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer">
+                <a
+                  href="#"
+                  aria-label="Twitter"
+                  className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer"
+                >
                   <i className="ri-twitter-fill text-lg" />
                 </a>
-                <a href="#" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer">
+                <a
+                  href="#"
+                  aria-label="Instagram"
+                  className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer"
+                >
                   <i className="ri-instagram-fill text-lg" />
                 </a>
               </div>
