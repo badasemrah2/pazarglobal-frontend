@@ -315,7 +315,8 @@ export default function ChatBox() {
     const authenticatedUserId = customUser?.id || user?.id;
     const phoneNumber = customUser?.phone || user?.phone;
     
-    const endpoint = `${AGENT_API_BASE.replace(/\/$/, '')}/webchat/message`;
+    // Use v2 API endpoint for proper handler routing
+    const endpoint = `${AGENT_API_BASE.replace(/\/$/, '')}/api/v1/message`;
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
