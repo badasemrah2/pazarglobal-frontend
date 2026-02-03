@@ -315,20 +315,27 @@ export default function ChatBox() {
     const authenticatedUserId = customUser?.id || user?.id;
     const phoneNumber = customUser?.phone || user?.phone;
     
-    // Use v2 API endpoint for proper handler routing
-    const endpoint = `${AGENT_API_BASE.replace(/\/$/, '')}/api/v1/message`;
+    // Get Supabase session token for JWT auth
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+    
+    if (!accessToken) {
+      throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+    }
+    
+    // Use V3 API endpoint - Single LLM Brain
+    const endpoint = `${AGENT_API_BASE.replace(/\/$/, '')}/api/v3/message`;
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,  // JWT token for security
       },
       body: JSON.stringify({
-        session_id: authenticatedUserId || resolvedUserId, // Real user ID or fallback
-        message,
         user_id: authenticatedUserId || resolvedUserId, // Real Supabase UUID
-        phone_number: phoneNumber || undefined, // Optional: for WhatsApp-Web matching
-        media_url: mediaPayload.publicUrls[0],
+        message,
         media_urls: mediaPayload.publicUrls.length > 0 ? mediaPayload.publicUrls : undefined,
+        channel: 'webchat',
       }),
     });
 
@@ -338,8 +345,8 @@ export default function ChatBox() {
     }
 
     const json = await response.json();
-    const assistantText = json.message || json.response || '';
-    const listings = json.data?.listings || json.listings;
+    const assistantText = json.text || json.message || json.response || '';
+    const listings = json.data?.listings || json.listings || json.listing_preview;
     if (assistantText) {
       commitAssistantResponse(assistantText, undefined, listings);
     }
@@ -362,12 +369,22 @@ export default function ChatBox() {
     const authenticatedUserId = customUser?.id || user?.id;
     const phoneNumber = customUser?.phone || user?.phone;
     
-    const endpoint = `${AGENT_API_BASE.replace(/\/$/, '')}/webchat/media/analyze`;
+    // Get Supabase session token for JWT auth
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+    
+    if (!accessToken) {
+      console.error('No session token for media analysis');
+      return false;
+    }
+    
+    const endpoint = `${AGENT_API_BASE.replace(/\/$/, '')}/api/v3/webchat/media/analyze`;
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,  // JWT token for security
         },
         body: JSON.stringify({
           session_id: authenticatedUserId || resolvedUserId, // Real user ID
