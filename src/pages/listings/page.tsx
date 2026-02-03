@@ -53,7 +53,7 @@ export default function ListingsPage() {
 
   const [filters, setFilters] = useState<FilterState>({
     categories: [],
-    priceRange: [0, 1000000],
+    priceRange: [0, 100000000],
     location: '',
     condition: [],
     isPremium: false,
@@ -151,7 +151,7 @@ export default function ListingsPage() {
   const clearFilters = () => {
     setFilters({
       categories: [],
-      priceRange: [0, 1000000],
+      priceRange: [0, 100000000],
       location: '',
       condition: [],
       isPremium: false,

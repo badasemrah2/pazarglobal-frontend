@@ -191,7 +191,7 @@ export async function fetchListings(): Promise<DBListing[]> {
   // Use fetchListingsWithFilters with empty filters for consistency
   return fetchListingsWithFilters({
     categories: [],
-    priceRange: [0, 1000000],
+    priceRange: [0, 100000000],
     location: '',
     condition: [],
     isPremium: false,
