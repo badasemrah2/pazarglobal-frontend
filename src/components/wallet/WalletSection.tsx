@@ -17,6 +17,7 @@ interface WalletSectionProps {
 
 export default function WalletSection({ userId }: WalletSectionProps) {
   const [balance, setBalance] = useState<number>(0);
+  const [promoUntil, setPromoUntil] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreditModal, setShowCreditModal] = useState(false);
@@ -37,12 +38,13 @@ export default function WalletSection({ userId }: WalletSectionProps) {
       // Bakiye al
       const { data: wallet } = await supabase
         .from('wallets')
-        .select('balance_bigint')
+        .select('balance_bigint, free_unlimited_until')
         .eq('user_id', userId)
         .single();
 
       if (wallet) {
         setBalance(wallet.balance_bigint || 0);
+        setPromoUntil(wallet.free_unlimited_until || null);
       }
 
       // Son işlemleri al
@@ -103,6 +105,19 @@ export default function WalletSection({ userId }: WalletSectionProps) {
     }
   };
 
+  const isPromoUnlimitedActive = () => {
+    if (!promoUntil) return false;
+    const until = new Date(promoUntil);
+    return !Number.isNaN(until.getTime()) && until.getTime() > Date.now();
+  };
+
+  const formatPromoUntil = () => {
+    if (!promoUntil) return '';
+    const until = new Date(promoUntil);
+    if (Number.isNaN(until.getTime())) return '';
+    return until.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-2xl shadow-lg p-8">
@@ -135,12 +150,27 @@ export default function WalletSection({ userId }: WalletSectionProps) {
         <div className="bg-gradient-to-r from-teal-500 to-teal-600 rounded-xl p-6 mb-6 text-white">
           <p className="text-sm opacity-90 mb-1">Mevcut Bakiye</p>
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-bold">{balance}</span>
-            <span className="text-lg opacity-90">kredi</span>
+            {isPromoUnlimitedActive() ? (
+              <>
+                <span className="text-4xl font-bold">∞</span>
+                <span className="text-lg opacity-90">sınırsız</span>
+              </>
+            ) : (
+              <>
+                <span className="text-4xl font-bold">{balance}</span>
+                <span className="text-lg opacity-90">kredi</span>
+              </>
+            )}
           </div>
-          <p className="text-xs opacity-75 mt-2">
-            ≈ {((balance / 55) * 11).toFixed(2)} ₺ değerinde
-          </p>
+          {isPromoUnlimitedActive() ? (
+            <p className="text-xs opacity-75 mt-2">
+              Deneme süresi aktif (bitiş: {formatPromoUntil()})
+            </p>
+          ) : (
+            <p className="text-xs opacity-75 mt-2">
+              ≈ {((balance / 55) * 11).toFixed(2)} ₺ değerinde
+            </p>
+          )}
         </div>
 
         {/* Aksiyon Butonları */}

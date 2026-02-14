@@ -25,14 +25,6 @@ export default function WhatsAppResetPinPage() {
     }
   }, [phoneFromUrl]);
 
-  const hashPin = async (pin: string): Promise<string> => {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(pin);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -71,48 +63,17 @@ export default function WhatsAppResetPinPage() {
     setLoading(true);
 
     try {
-      // 1. Check if user exists and verify old PIN
-      const oldPinHash = await hashPin(oldPin);
-      const { data: security, error: fetchError } = await supabase
-        .from('user_security')
-        .select('*')
-        .eq('phone', phone)
-        .eq('pin_hash', oldPinHash)
-        .single();
+      const { data, error: fnError } = await supabase.functions.invoke('auth-reset-pin', {
+        body: {
+          phone,
+          old_pin: oldPin,
+          new_pin: newPin,
+        },
+      });
 
-      if (fetchError || !security) {
-        setError('Telefon numarası veya eski PIN hatalı');
-        setLoading(false);
-        return;
-      }
-
-      // 2. Check if account is locked
-      if (security.is_locked) {
-        const blockedUntil = new Date(security.blocked_until);
-        if (blockedUntil > new Date()) {
-          const remainingMinutes = Math.ceil((blockedUntil.getTime() - Date.now()) / 60000);
-          setError(`Hesabınız kilitli. ${remainingMinutes} dakika sonra tekrar deneyin.`);
-          setLoading(false);
-          return;
-        }
-      }
-
-      // 3. Update PIN
-      const newPinHash = await hashPin(newPin);
-      const { error: updateError } = await supabase
-        .from('user_security')
-        .update({
-          pin_hash: newPinHash,
-          failed_attempts: 0,
-          is_locked: false,
-          blocked_until: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('phone', phone);
-
-      if (updateError) {
-        console.error('PIN update error:', updateError);
-        setError('PIN güncellenirken bir hata oluştu');
+      if (fnError || !data?.success) {
+        const msg = data?.error || fnError?.message || 'Bir hata oluştu. Lütfen tekrar deneyin.';
+        setError(msg);
         setLoading(false);
         return;
       }

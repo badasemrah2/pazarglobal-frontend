@@ -40,6 +40,9 @@ pnpm-debug.log*
 # Vite
 .vite/
 
+# Supabase CLI (local temp metadata)
+supabase/.temp/
+
 # Environment
 .env
 .env.production

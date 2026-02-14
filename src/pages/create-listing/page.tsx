@@ -11,11 +11,6 @@ import { useAuthStore } from '../../stores/authStore';
 import { fetchCategoryOptions } from '../../services/agentApi';
 import { FALLBACK_CATEGORY_OPTIONS } from '../../constants/categories';
 
-// Browser native UUID generator (no external package needed)
-function generateUUID(): string {
-  return crypto.randomUUID();
-}
-
 type FormData = {
   title: string;
   description: string;
@@ -705,14 +700,6 @@ export default function CreateListingPage() {
 
       const imagePaths = await uploadImages();
 
-      // ✅ Image URL'lerini oluştur
-      const imageUrls = imagePaths.map(path => {
-        const { data } = supabase.storage
-          .from('product-images')
-          .getPublicUrl(path);
-        return data.publicUrl;
-      });
-
       const dbCondition = toCanonicalCondition(formData.condition) || '2. El';
 
       // Keywords: best-effort LLM via Edge Function, fallback to deterministic.
@@ -762,83 +749,30 @@ export default function CreateListingPage() {
         attributes: {},
       };
 
-      // Generate listing ID upfront (Supabase may not have default)
-      const listingId = generateUUID();
-
-      const { data, error } = await supabase
-        .from('listings')
-        .insert({
-          id: listingId,
-          user_id: userId,
+      // ✅ Güvenli: ilan oluşturma + resim taşıma işlemlerini Edge Function üzerinden yap
+      // Bu sayede tarayıcıdan tabloya doğrudan yazmaya gerek kalmaz (RLS sıkılaştırılabilir).
+      const sessionToken = localStorage.getItem('session_token') || undefined;
+      const { data: fnData, error: fnError } = await supabase.functions.invoke('create-listing', {
+        body: {
           title: formData.title,
           description: formData.description,
           price: parseFloat(formData.price),
           category: formData.category,
           condition: dbCondition,
           location: formData.location,
-          image_url: imageUrls[0], // İlk resim
-          images: imagePaths, // ✅ Tüm resim path'leri JSON array olarak
-          metadata: metadata, // ✅ Metadata eklendi
-          user_name: userName,
-          user_phone: userPhone,
-          status: 'active',
-          is_premium: false,
-          view_count: 0,
-          created_at: new Date().toISOString()
-        })
-        .select()
-        .single();
+          image_paths: imagePaths,
+          metadata,
+          session_token: sessionToken,
+        },
+      });
 
-      if (error) {
-        console.error('Insert error:', error);
-        throw error;
-      }
-
-      // ✅ Gerçek listing ID ile path'leri güncelle
-      if (data && data.id) {
-        const realListingId = data.id;
-        const updatedPaths: string[] = [];
-
-        for (const oldPath of imagePaths) {
-          // Eski path: tel_no/temp_xxx/resim.jpeg
-          // Yeni path: tel_no/listing_id/resim.jpeg
-          const fileName = oldPath.split('/').pop();
-          const phoneNumber = oldPath.split('/')[0];
-          const newPath = `${phoneNumber}/${realListingId}/${fileName}`;
-
-          // Storage'da dosyayı taşı
-          const { error: moveError } = await supabase.storage
-            .from('product-images')
-            .move(oldPath, newPath);
-
-          if (moveError) {
-            console.error('Move error:', moveError);
-            // Taşıma başarısız olursa eski path'i kullan
-            updatedPaths.push(oldPath);
-          } else {
-            updatedPaths.push(newPath);
-          }
-        }
-
-        // ✅ Güncellenmiş path'leri ve URL'leri kaydet
-        const updatedUrls = updatedPaths.map(path => {
-          const { data: urlData } = supabase.storage
-            .from('product-images')
-            .getPublicUrl(path);
-          return urlData.publicUrl;
-        });
-
-        await supabase
-          .from('listings')
-          .update({
-            images: updatedPaths,
-            image_url: updatedUrls[0]
-          })
-          .eq('id', realListingId);
+      if (fnError || !fnData?.success || !fnData?.listing?.id) {
+        console.error('create-listing function error:', fnError, fnData);
+        throw new Error(fnData?.error || fnError?.message || 'İlan oluşturulamadı');
       }
 
       alert('İlan başarıyla oluşturuldu! 🎉');
-      navigate(`/listing/${data.id}`);
+      navigate(`/listing/${fnData.listing.id}`);
     } catch (error: any) {
       console.error('Error creating listing:', error);
       
