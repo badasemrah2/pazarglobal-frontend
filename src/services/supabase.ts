@@ -23,6 +23,8 @@ export interface DBListing {
       }
   )[];
   is_premium: boolean;
+  premium_badge?: string | null;
+  premium_until?: string | null;
   views: number;
   created_at: string;
   status: string;

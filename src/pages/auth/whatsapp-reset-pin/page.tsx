@@ -187,6 +187,8 @@ export default function WhatsAppResetPinPage() {
               <button
                 type="button"
                 onClick={() => setShowOldPin(!showOldPin)}
+                title={showOldPin ? 'Eski PIN gizle' : 'Eski PIN göster'}
+                aria-label={showOldPin ? 'Eski PIN gizle' : 'Eski PIN göster'}
                 className="absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer"
               >
                 <i className={`${showOldPin ? 'ri-eye-off-line' : 'ri-eye-line'} text-gray-400 hover:text-gray-600`} />
@@ -214,6 +216,8 @@ export default function WhatsAppResetPinPage() {
               <button
                 type="button"
                 onClick={() => setShowNewPin(!showNewPin)}
+                title={showNewPin ? 'Yeni PIN gizle' : 'Yeni PIN göster'}
+                aria-label={showNewPin ? 'Yeni PIN gizle' : 'Yeni PIN göster'}
                 className="absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer"
               >
                 <i className={`${showNewPin ? 'ri-eye-off-line' : 'ri-eye-line'} text-gray-400 hover:text-gray-600`} />
@@ -244,6 +248,8 @@ export default function WhatsAppResetPinPage() {
               <button
                 type="button"
                 onClick={() => setShowConfirmPin(!showConfirmPin)}
+                title={showConfirmPin ? 'Yeni PIN tekrar gizle' : 'Yeni PIN tekrar göster'}
+                aria-label={showConfirmPin ? 'Yeni PIN tekrar gizle' : 'Yeni PIN tekrar göster'}
                 className="absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer"
               >
                 <i className={`${showConfirmPin ? 'ri-eye-off-line' : 'ri-eye-line'} text-gray-400 hover:text-gray-600`} />

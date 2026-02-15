@@ -713,8 +713,23 @@ export default function ChatBox() {
             {/* Premium Badge */}
             {listing.is_premium && (
               <div className="listing-card-badge">
-                <i className="ri-vip-crown-fill" />
-                <span>PREMIUM</span>
+                {(() => {
+                  const badge = String(listing.premium_badge || '').trim().toLowerCase();
+                  const ui =
+                    badge === 'gold'
+                      ? { icon: 'ri-arrow-up-line', label: 'GOLD' }
+                      : badge === 'platinum'
+                        ? { icon: 'ri-vip-crown-line', label: 'PLATINUM' }
+                        : badge === 'diamond'
+                          ? { icon: 'ri-vip-diamond-fill', label: 'DIAMOND' }
+                          : { icon: 'ri-vip-crown-fill', label: 'PREMIUM' };
+                  return (
+                    <>
+                      <i className={ui.icon} />
+                      <span>{ui.label}</span>
+                    </>
+                  );
+                })()}
               </div>
             )}
             {/* Photo count */}

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Listing } from '../../../types/listing';
 import { toCanonicalCondition } from '../../../lib/condition';
+import { getPremiumBadgeUI } from '../../../lib/premiumBadge';
 
 interface ListingCardProps {
   listing: Listing;
@@ -85,6 +86,8 @@ function MagnifierImage({
 export default function ListingCard({ listing, viewMode, index }: ListingCardProps) {
   const navigate = useNavigate();
 
+  const premiumUi = getPremiumBadgeUI(listing.premiumBadge);
+
   const formatDate = (date: string) => {
     const now = new Date();
     const itemDate = new Date(date);
@@ -121,9 +124,9 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
               imageClassName="w-full h-full object-contain"
             />
             {listing.isPremium && (
-              <div className="absolute top-3 left-3 px-3 py-1 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-bold rounded-full flex items-center space-x-1">
-                <i className="ri-vip-crown-fill" />
-                <span>Premium</span>
+              <div className={`absolute top-3 left-3 px-3 py-1 ${premiumUi.className} text-white text-xs font-bold rounded-full flex items-center space-x-1`}>
+                <i className={premiumUi.icon} />
+                <span>{premiumUi.label}</span>
               </div>
             )}
           </div>
@@ -132,6 +135,12 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
             <div>
               <div className="flex items-start justify-between mb-3">
                 <div>
+                  {listing.isPremium ? (
+                    <div className={`mb-2 inline-flex items-center space-x-1 px-3 py-1 ${premiumUi.className} text-white text-xs font-bold rounded-full`}>
+                      <i className={premiumUi.icon} />
+                      <span>{premiumUi.label}</span>
+                    </div>
+                  ) : null}
                   <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-primary-600 transition-colors">
                     {listing.title}
                   </h3>
@@ -193,9 +202,9 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
           imageClassName="w-full h-full object-contain"
         />
         {listing.isPremium && (
-          <div className="absolute top-3 right-3 px-3 py-1 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-bold rounded-full flex items-center space-x-1">
-            <i className="ri-vip-crown-fill" />
-            <span>Premium</span>
+          <div className={`absolute top-3 right-3 px-3 py-1 ${premiumUi.className} text-white text-xs font-bold rounded-full flex items-center space-x-1`}>
+            <i className={premiumUi.icon} />
+            <span>{premiumUi.label}</span>
           </div>
         )}
         <div className="absolute bottom-3 left-3 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-medium text-gray-700">
@@ -204,6 +213,12 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
       </div>
 
       <div className="p-5">
+        {listing.isPremium ? (
+          <div className={`mb-2 inline-flex items-center space-x-1 px-3 py-1 ${premiumUi.className} text-white text-xs font-bold rounded-full`}>
+            <i className={premiumUi.icon} />
+            <span>{premiumUi.label}</span>
+          </div>
+        ) : null}
         <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-primary-600 transition-colors">
           {listing.title}
         </h3>

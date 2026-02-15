@@ -2,12 +2,19 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 type Json = Record<string, unknown>
 
+const CORS_HEADERS: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 function jsonResponse(status: number, body: Json) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
       'Cache-Control': 'no-store',
+      ...CORS_HEADERS,
     },
   })
 }
@@ -22,6 +29,15 @@ function getBearerToken(req: Request): string | null {
 function isUuid(value: unknown): value is string {
   if (typeof value !== 'string') return false
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
+
+function asText(v: unknown): string {
+  return typeof v === 'string' ? v : ''
+}
+
+function sanitizeLikeQuery(q: string): string {
+  // Escape % and _ which are wildcards in LIKE/ILIKE.
+  return q.replace(/[%_]/g, (m) => `\\${m}`)
 }
 
 async function bestEffortAuditLog(
@@ -56,17 +72,79 @@ async function requireAdmin(supabase: ReturnType<typeof createClient>, jwt: stri
 
   const userId = userData.user.id
 
-  const { data: profile, error: profileErr } = await supabase
-    .from('profiles')
-    .select('id, role, is_active')
-    .eq('id', userId)
-    .maybeSingle()
-
-  if (profileErr) {
-    return { ok: false as const, error: 'profile_error', detail: profileErr.message }
+  // Profiles schema has historically drifted (role vs user_role; is_active vs status).
+  // Try the current expected columns first, then fall back when we detect missing columns.
+  const readProfile = async (select: string) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select(select)
+      .eq('id', userId)
+      .maybeSingle()
+    return { data: data as any, error }
   }
-  if (!profile || profile.role !== 'admin' || profile.is_active !== true) {
-    return { ok: false as const, error: 'forbidden' }
+
+  const looksLikeMissingColumn = (message?: string | null) => {
+    const m = (message || '').toLowerCase()
+    return (
+      m.includes('could not find the') ||
+      (m.includes('column') && m.includes('does not exist')) ||
+      m.includes('not found in the schema cache')
+    )
+  }
+
+  // Try a few known schema variants.
+  const selects = [
+    'id, role, is_active',
+    'id, role, status',
+    'id, user_role, is_active',
+    'id, user_role, status',
+    'id, role',
+    'id, user_role',
+  ]
+
+  let lastErr: any = null
+  let profile: any = null
+  for (const sel of selects) {
+    const res = await readProfile(sel)
+    if (!res.error) {
+      profile = res.data
+      lastErr = null
+      break
+    }
+    lastErr = res.error
+    if (!looksLikeMissingColumn(res.error.message)) {
+      // Not a schema-cache/missing-column issue; don't keep retrying.
+      break
+    }
+  }
+
+  if (lastErr) {
+    return { ok: false as const, error: 'profile_error', detail: lastErr.message }
+  }
+
+  const rawRole = (profile?.role ?? profile?.user_role ?? '') as string
+  const role = String(rawRole || '').trim().toLowerCase()
+
+  // Active can be represented as boolean (is_active) or string status.
+  const isActiveBool = profile?.is_active
+  const status = String(profile?.status ?? '').trim().toLowerCase()
+  const isActive =
+    typeof isActiveBool === 'boolean'
+      ? isActiveBool
+      : status
+        ? status === 'active' || status === 'enabled'
+        : true // if neither column exists, fail-open for activity (admin check still enforced)
+
+  if (!profile || role !== 'admin' || isActive !== true) {
+    return {
+      ok: false as const,
+      error: 'forbidden',
+      detail: !profile
+        ? 'missing_profile'
+        : isActive !== true
+          ? 'inactive_user'
+          : `role_not_admin:${role || 'empty'}`,
+    }
   }
 
   return {
@@ -74,12 +152,22 @@ async function requireAdmin(supabase: ReturnType<typeof createClient>, jwt: stri
     user: {
       id: userId,
       email: userData.user.email ?? null,
-      role: profile.role,
+      role: role,
     },
   }
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', {
+      status: 200,
+      headers: {
+        ...CORS_HEADERS,
+        'Cache-Control': 'no-store',
+      },
+    })
+  }
+
   if (req.method !== 'POST') {
     return jsonResponse(405, { success: false, error: 'method_not_allowed' })
   }
@@ -121,6 +209,55 @@ Deno.serve(async (req) => {
   try {
     if (action === 'whoami') {
       return jsonResponse(200, { success: true, data: admin.user })
+    }
+
+    // --- User lookup helpers (admin UI) ---
+    if (action === 'lookup_user') {
+      const userId = asText(payload.user_id).trim()
+      if (!isUuid(userId)) return jsonResponse(400, { success: false, error: 'invalid_user_id' })
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, full_name, display_name, role, is_active')
+        .eq('id', userId)
+        .maybeSingle()
+
+      if (error) return jsonResponse(500, { success: false, error: error.message })
+      if (!data) return jsonResponse(404, { success: false, error: 'not_found' })
+      return jsonResponse(200, { success: true, data })
+    }
+
+    if (action === 'search_users') {
+      const qRaw = asText(payload.query).trim()
+      const limit = Math.min(Math.max(Number(payload.limit ?? 10) || 10, 1), 25)
+      if (!qRaw || qRaw.length < 2) {
+        return jsonResponse(200, { success: true, data: [] })
+      }
+
+      // If the query is a UUID, do an exact id match as well.
+      if (isUuid(qRaw)) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, display_name, role, is_active')
+          .eq('id', qRaw)
+          .limit(1)
+        if (error) return jsonResponse(500, { success: false, error: error.message })
+        return jsonResponse(200, { success: true, data: data ?? [] })
+      }
+
+      const q = sanitizeLikeQuery(qRaw)
+      const pattern = `%${q}%`
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, full_name, display_name, role, is_active')
+        .or(
+          `full_name.ilike.${pattern},display_name.ilike.${pattern},email.ilike.${pattern}`,
+        )
+        .limit(limit)
+
+      if (error) return jsonResponse(500, { success: false, error: error.message })
+      return jsonResponse(200, { success: true, data: data ?? [] })
     }
 
     if (action === 'set_promo_deadline') {
@@ -220,23 +357,37 @@ Deno.serve(async (req) => {
     if (action === 'set_user_role') {
       const userId = String(payload.user_id ?? '')
       const role = String(payload.role ?? '')
-      if (!userId || !role) return jsonResponse(400, { success: false, error: 'invalid_params' })
+      const normalizedRole = role.trim().toLowerCase()
+      if (!userId || !normalizedRole) return jsonResponse(400, { success: false, error: 'invalid_params' })
 
-      const { error } = await supabase
+      if (!['admin', 'assist', 'user'].includes(normalizedRole)) {
+        return jsonResponse(400, { success: false, error: 'invalid_role', detail: normalizedRole })
+      }
+
+      // Prefer `role`, fall back to `user_role` for older schemas.
+      let upErr = (await supabase
         .from('profiles')
-        .update({ role })
-        .eq('id', userId)
-      if (error) return jsonResponse(500, { success: false, error: error.message })
+        .update({ role: normalizedRole })
+        .eq('id', userId)).error
+
+      if (upErr && String(upErr.message || '').toLowerCase().includes('column')) {
+        upErr = (await supabase
+          .from('profiles')
+          .update({ user_role: normalizedRole })
+          .eq('id', userId)).error
+      }
+
+      if (upErr) return jsonResponse(500, { success: false, error: upErr.message })
 
       await bestEffortAuditLog(
         supabase,
         admin.user.id,
         action,
-        { user_id: userId, role },
+        { user_id: userId, role: normalizedRole },
         'profile',
         userId,
       )
-      return jsonResponse(200, { success: true, data: { user_id: userId, role } })
+      return jsonResponse(200, { success: true, data: { user_id: userId, role: normalizedRole } })
     }
 
     if (action === 'set_listing_premium') {

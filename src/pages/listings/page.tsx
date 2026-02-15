@@ -93,6 +93,7 @@ export default function ListingsPage() {
             ?.map(img => resolveImageUrl(img))
             .filter((url): url is string => Boolean(url)),
           isPremium: item.is_premium || false,
+          premiumBadge: (item as any).premium_badge ?? null,
           views: item.views,
           createdAt: item.created_at,
           seller: {
@@ -114,21 +115,55 @@ export default function ListingsPage() {
 
         // Sort the listings
         const sortedListings = [...searchFiltered];
+
+        const premiumFirst = (a: Listing, b: Listing) => {
+          const ap = a.isPremium ? 1 : 0;
+          const bp = b.isPremium ? 1 : 0;
+          return bp - ap; // premium first
+        };
+
         switch (sortBy) {
           case 'newest':
-            sortedListings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            sortedListings.sort((a, b) => {
+              const p = premiumFirst(a, b);
+              if (p !== 0) return p;
+              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            });
             break;
           case 'oldest':
-            sortedListings.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+            sortedListings.sort((a, b) => {
+              const p = premiumFirst(a, b);
+              if (p !== 0) return p;
+              return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+            });
             break;
           case 'price-low':
-            sortedListings.sort((a, b) => a.price - b.price);
+            sortedListings.sort((a, b) => {
+              const p = premiumFirst(a, b);
+              if (p !== 0) return p;
+              return a.price - b.price;
+            });
             break;
           case 'price-high':
-            sortedListings.sort((a, b) => b.price - a.price);
+            sortedListings.sort((a, b) => {
+              const p = premiumFirst(a, b);
+              if (p !== 0) return p;
+              return b.price - a.price;
+            });
             break;
           case 'popular':
-            sortedListings.sort((a, b) => b.views - a.views);
+            sortedListings.sort((a, b) => {
+              const p = premiumFirst(a, b);
+              if (p !== 0) return p;
+              return b.views - a.views;
+            });
+            break;
+          default:
+            sortedListings.sort((a, b) => {
+              const p = premiumFirst(a, b);
+              if (p !== 0) return p;
+              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            });
             break;
         }
 

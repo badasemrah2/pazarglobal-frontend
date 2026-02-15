@@ -9,6 +9,7 @@ export interface Listing {
   image: string;
   images?: string[]; // Detay sayfası için çoklu resim
   isPremium: boolean;
+  premiumBadge?: string | null;
   views: number;
   createdAt: string;
   seller: {

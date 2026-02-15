@@ -60,18 +60,28 @@ serve(async (req) => {
 
     // 3️⃣ Profiles tablosuna kayıt
     console.log('3️⃣ Profiles tablosuna kayıt yapılıyor...');
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .insert({
-        id: userId,
-        phone: phone,
-        email: email,
-        full_name: name,
-        display_name: name,
-        user_role: 'buyer',
-        is_verified: false,
-        is_active: true,
-      });
+    const baseProfile = {
+      id: userId,
+      phone: phone,
+      email: email,
+      full_name: name,
+      display_name: name,
+      is_verified: false,
+      is_active: true,
+    };
+
+    // Current schema prefers `role`. Older deployments used `user_role`.
+    let profileError = (await supabaseAdmin.from('profiles').insert({
+      ...baseProfile,
+      role: 'user',
+    })).error;
+
+    if (profileError && String(profileError.message || '').toLowerCase().includes('column')) {
+      profileError = (await supabaseAdmin.from('profiles').insert({
+        ...baseProfile,
+        user_role: 'user',
+      })).error;
+    }
 
     if (profileError) {
       console.error('❌ Profile hatası:', profileError);

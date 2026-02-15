@@ -7,6 +7,7 @@ import Footer from '../home/components/Footer';
 import ChatBox from '../../components/feature/ChatBox';
 import { toCanonicalCondition } from '../../lib/condition';
 import { supabase } from '../../lib/supabase';
+import { getPremiumBadgeUI } from '../../lib/premiumBadge';
 
 interface ListingDetail {
   id: string;
@@ -18,6 +19,7 @@ interface ListingDetail {
   location: string;
   images: string[];
   is_premium: boolean;
+  premium_badge?: string | null;
   views: number;
   created_at: string;
   user_name: string;
@@ -122,6 +124,7 @@ export default function ListingDetailPage() {
           location: data.location,
           images: imageUrls,
           is_premium: data.is_premium || false,
+          premium_badge: (data as any).premium_badge ?? null,
           views: data.view_count || 0,
           created_at: data.created_at,
           user_name: data.user_name || 'Satıcı',
@@ -214,10 +217,15 @@ export default function ListingDetailPage() {
                   className="w-full h-full object-cover"
                 />
                 {listing.is_premium && (
-                  <div className="absolute top-4 right-4 px-4 py-2 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-sm font-bold rounded-full flex items-center space-x-2">
-                    <i className="ri-vip-crown-fill" />
-                    <span>Premium İlan</span>
-                  </div>
+                  (() => {
+                    const ui = getPremiumBadgeUI(listing.premium_badge);
+                    return (
+                      <div className={`absolute top-4 right-4 px-4 py-2 ${ui.className} text-white text-sm font-bold rounded-full flex items-center space-x-2`}>
+                        <i className={ui.icon} />
+                        <span>{ui.label}</span>
+                      </div>
+                    );
+                  })()
                 )}
               </div>
 
@@ -254,9 +262,26 @@ export default function ListingDetailPage() {
               {/* Title & Price */}
               <div className="bg-white rounded-2xl p-6 shadow-lg">
                 <div className="flex items-start justify-between mb-4">
-                  <h1 className="text-3xl font-bold text-gray-900 flex-1">
-                    {listing.title}
-                  </h1>
+                  {listing.is_premium ? (
+                    (() => {
+                      const ui = getPremiumBadgeUI(listing.premium_badge);
+                      return (
+                        <div className={`mr-3 mt-1 inline-flex items-center space-x-2 px-4 py-2 ${ui.className} text-white text-sm font-bold rounded-full flex-shrink-0`}>
+                          <i className={ui.icon} />
+                          <span>{ui.label}</span>
+                        </div>
+                      );
+                    })()
+                  ) : null}
+                  <div className="flex-1">
+                    <h1 className="text-3xl font-bold text-gray-900">
+                      {listing.title}
+                    </h1>
+                    <div className="mt-2 text-sm text-gray-500 flex items-center space-x-2">
+                      <i className="ri-hashtag" />
+                      <span title={listing.id}>İlan ID: {listing.id}</span>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between mb-6">
