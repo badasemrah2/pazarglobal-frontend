@@ -441,15 +441,150 @@ Deno.serve(async (req) => {
       return jsonResponse(200, { success: true, data: { listing_id: listingId, status } })
     }
 
+    if (action === 'get_listing_owner') {
+      const listingId = String(payload.listing_id ?? '').trim()
+      if (!isUuid(listingId)) return jsonResponse(400, { success: false, error: 'invalid_listing_id' })
+
+      const { data, error } = await supabase
+        .from('listings')
+        .select('id, user_id, title, status')
+        .eq('id', listingId)
+        .maybeSingle()
+
+      if (error) return jsonResponse(500, { success: false, error: error.message })
+      if (!data) return jsonResponse(404, { success: false, error: 'listing_not_found' })
+      if (!data.user_id) return jsonResponse(404, { success: false, error: 'listing_owner_not_found' })
+
+      return jsonResponse(200, {
+        success: true,
+        data: {
+          listing_id: data.id,
+          owner_user_id: data.user_id,
+          title: data.title ?? null,
+          status: data.status ?? null,
+        },
+      })
+    }
+
     if (action === 'list_illegal_reports') {
       const limit = Math.max(1, Math.min(100, Number(payload.limit ?? 50)))
-      const { data, error } = await supabase
+      const offset = Math.max(0, Number(payload.offset ?? 0) || 0)
+      const reviewedRaw = payload.reviewed
+      const listingId = String(payload.listing_id ?? '').trim()
+      const reporterUser = String(payload.reporter_user ?? '').trim()
+      const reasonQuery = String(payload.reason_query ?? '').trim()
+
+      let query = supabase
         .from('illegal_reports')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(limit)
+        .range(offset, offset + limit - 1)
+
+      if (typeof reviewedRaw === 'boolean') {
+        query = query.eq('reviewed', reviewedRaw)
+      }
+      if (isUuid(listingId)) {
+        query = query.eq('listing_id', listingId)
+      }
+      if (isUuid(reporterUser)) {
+        query = query.eq('reporter_user', reporterUser)
+      }
+      if (reasonQuery) {
+        query = query.ilike('reason', `%${sanitizeLikeQuery(reasonQuery)}%`)
+      }
+
+      const { data, error } = await query
       if (error) return jsonResponse(500, { success: false, error: error.message })
       return jsonResponse(200, { success: true, data: data ?? [] })
+    }
+
+    if (action === 'review_illegal_report') {
+      const reportId = String(payload.report_id ?? '').trim()
+      const reviewed = Boolean(payload.reviewed ?? true)
+      if (!reportId) return jsonResponse(400, { success: false, error: 'report_id_required' })
+
+      const updatePayload: Record<string, unknown> = {
+        reviewed,
+      }
+
+      if (Object.prototype.hasOwnProperty.call(payload, 'review_notes')) {
+        updatePayload.review_notes = payload.review_notes ?? null
+      }
+      if (Object.prototype.hasOwnProperty.call(payload, 'reviewed_by')) {
+        updatePayload.reviewed_by = payload.reviewed_by ?? null
+      }
+      if (reviewed) {
+        updatePayload.reviewed_at = new Date().toISOString()
+      }
+
+      const { data, error } = await supabase
+        .from('illegal_reports')
+        .update(updatePayload)
+        .eq('id', reportId)
+        .select('*')
+        .single()
+
+      if (error) return jsonResponse(500, { success: false, error: error.message })
+      return jsonResponse(200, { success: true, data })
+    }
+
+    if (action === 'list_image_safety_flags') {
+      const limit = Math.max(1, Math.min(200, Number(payload.limit ?? 100)))
+      const offset = Math.max(0, Number(payload.offset ?? 0) || 0)
+      const onlyPending = Boolean(payload.only_pending ?? false)
+      const status = String(payload.status ?? '').trim().toLowerCase()
+      const flagTypeQuery = String(payload.flag_type_query ?? '').trim()
+      const userId = String(payload.user_id ?? '').trim()
+
+      let query = supabase
+        .from('image_safety_flags')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1)
+
+      if (onlyPending) {
+        query = query.or('status.is.null,status.eq.pending')
+      }
+      if (status) {
+        query = query.eq('status', status)
+      }
+      if (flagTypeQuery) {
+        query = query.ilike('flag_type', `%${sanitizeLikeQuery(flagTypeQuery)}%`)
+      }
+      if (isUuid(userId)) {
+        query = query.eq('user_id', userId)
+      }
+
+      const { data, error } = await query
+      if (error) return jsonResponse(500, { success: false, error: error.message })
+      return jsonResponse(200, { success: true, data: data ?? [] })
+    }
+
+    if (action === 'review_image_safety_flag') {
+      const flagId = String(payload.flag_id ?? '').trim()
+      const status = String(payload.status ?? 'reviewed').trim().toLowerCase()
+      const notes = payload.notes ?? null
+      const reviewer = payload.reviewer ?? admin.user.id
+
+      if (!isUuid(flagId)) return jsonResponse(400, { success: false, error: 'invalid_flag_id' })
+      if (!['pending', 'reviewed', 'false_positive', 'blocked'].includes(status)) {
+        return jsonResponse(400, { success: false, error: 'invalid_status', detail: status })
+      }
+
+      const { data, error } = await supabase
+        .from('image_safety_flags')
+        .update({
+          status,
+          notes,
+          reviewer,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('id', flagId)
+        .select('*')
+        .single()
+
+      if (error) return jsonResponse(500, { success: false, error: error.message })
+      return jsonResponse(200, { success: true, data })
     }
 
     return jsonResponse(400, { success: false, error: 'unknown_action' })

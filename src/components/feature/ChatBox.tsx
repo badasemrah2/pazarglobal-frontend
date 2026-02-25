@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { createClient } from '@supabase/supabase-js';
 import { useAuthStore } from '../../stores/authStore';
+import { supabase } from '../../lib/supabase';
 import VoiceChat from './VoiceChat';
 import VoiceSelector from './VoiceSelector';
 import ReactMarkdown from 'react-markdown';
@@ -26,10 +26,7 @@ type Message = {
 
 type Tab = 'general' | 'listing' | 'support';
 
-// Supabase client (public anon key for uploads to public bucket)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Supabase client is shared via src/lib/supabase to avoid multiple GoTrue instances.
 const PUBLIC_BUCKET = 'product-images';
 const AGENT_API_BASE =
   (import.meta.env as any).VITE_AGENT_API_BASE?.trim() ||

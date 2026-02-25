@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import TopNavigation from '../../components/feature/TopNavigation';
 import { WalletSection } from '../../components/wallet';
 import { supabase } from '../../lib/supabase';
+import { normalizePhoneTR } from '../../lib/phone';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -128,6 +129,11 @@ export default function ProfilePage() {
     setSaving(true);
 
     try {
+      const normalizedPhone = normalizePhoneTR(securityData.phone);
+      if (!normalizedPhone) {
+        throw new Error('Geçerli bir telefon numarası girin (+905XXXXXXXXX)');
+      }
+
       // PIN hash oluştur
       const encoder = new TextEncoder();
       const data = encoder.encode(securityData.pin);
@@ -139,7 +145,7 @@ export default function ProfilePage() {
       const { data: rpcData, error: rpcError } = await supabase
         .rpc('register_user_pin', {
           p_user_id: user.id,
-          p_phone: securityData.phone,
+          p_phone: normalizedPhone,
           p_pin_hash: pinHash,
         });
 

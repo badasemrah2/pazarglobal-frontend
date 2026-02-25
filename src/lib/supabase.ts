@@ -13,13 +13,15 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // Auth helper fonksiyonları
 export const authHelpers = {
   // Kayıt ol
-  signUp: async (email: string, password: string, fullName: string) => {
+  signUp: async (email: string, password: string, fullName: string, phone: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           full_name: fullName,
+          display_name: fullName,
+          phone,
         },
       },
     });

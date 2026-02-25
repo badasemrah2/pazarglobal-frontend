@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopNavigation from '../../../components/feature/TopNavigation';
 import { supabase } from '../../../lib/supabase';
+import { normalizePhoneTR } from '../../../lib/phone';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -40,11 +41,16 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      const normalizedPhone = normalizePhoneTR(formData.phone);
+      if (!normalizedPhone) {
+        throw new Error('Geçerli bir telefon numarası girin (+905XXXXXXXXX)');
+      }
+
       // ⚠️ GÜVENLİK: Telefon numarasının daha önce kullanılıp kullanılmadığını kontrol et
       const { data: existingPhone } = await supabase
         .from('profiles')
         .select('id, phone')
-        .eq('phone', formData.phone)
+        .eq('phone', normalizedPhone)
         .limit(1);
 
       if (existingPhone && existingPhone.length > 0) {
@@ -60,7 +66,7 @@ export default function RegisterPage() {
           data: {
             full_name: formData.name,
             display_name: formData.name,
-            phone: formData.phone,
+            phone: normalizedPhone,
           },
         },
       });
@@ -76,7 +82,7 @@ export default function RegisterPage() {
           .update({
             full_name: formData.name,
             display_name: formData.name,
-            phone: formData.phone,
+            phone: normalizedPhone,
           })
           .eq('id', authData.user.id);
 

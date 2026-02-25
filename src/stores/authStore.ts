@@ -31,7 +31,7 @@ interface AuthState {
   
   // Actions
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ success: boolean; error?: string }>;
+  signUp: (email: string, password: string, fullName: string, phone: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   loadUser: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ success: boolean; error?: string }>;
@@ -146,24 +146,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signUp: async (email: string, password: string, fullName: string) => {
+  signUp: async (email: string, password: string, fullName: string, phone: string) => {
     try {
-      const { data, error } = await authHelpers.signUp(email, password, fullName);
+      const { data, error } = await authHelpers.signUp(email, password, fullName, phone);
       
       if (error) {
         return { success: false, error: error.message };
       }
 
       if (data.user) {
-        // Profil oluştur
-        await supabase.from('profiles').insert({
+        // DB trigger already creates a profiles row. Upsert to ensure required fields exist.
+        await supabase.from('profiles').upsert({
           id: data.user.id,
           email: data.user.email,
+          phone,
           full_name: fullName,
           display_name: fullName,
-          is_verified: false,
-          rating: 0,
-        });
+        }, { onConflict: 'id' });
 
         set({
           user: data.user,

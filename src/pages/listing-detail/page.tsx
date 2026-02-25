@@ -1,13 +1,212 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import TopNavigation from '../../components/feature/TopNavigation';
 import Footer from '../home/components/Footer';
 import ChatBox from '../../components/feature/ChatBox';
 import { toCanonicalCondition } from '../../lib/condition';
 import { supabase } from '../../lib/supabase';
 import { getPremiumBadgeUI } from '../../lib/premiumBadge';
+
+// ── Report Modal ─────────────────────────────────────────────────────────────
+const REPORT_REASONS = [
+  'Sahte / yanıltıcı ilan',
+  'Yasadışı ürün veya hizmet',
+  'Dolandırıcılık şüphesi',
+  'Uygunsuz / müstehcen içerik',
+  'Nefret söylemi veya taciz',
+  'Diğer',
+] as const;
+
+type ReportReason = (typeof REPORT_REASONS)[number];
+
+interface ReportModalProps {
+  listingId: string;
+  listingTitle: string;
+  onClose: () => void;
+}
+
+function ReportModal({ listingId, listingTitle, onClose }: ReportModalProps) {
+  const [reason, setReason] = useState<ReportReason | ''>('');
+  const [details, setDetails] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [doneType, setDoneType] = useState<'created' | 'duplicate'>('created');
+  const [doneMessage, setDoneMessage] = useState('');
+  const [err, setErr] = useState('');
+
+  const extractErrorMessage = (input: unknown): string => {
+    if (!input) return 'Bilinmeyen hata';
+    if (typeof input === 'string') return input;
+    if (input instanceof Error) return input.message;
+    if (typeof input === 'object') {
+      const obj = input as Record<string, unknown>;
+      const parts = [obj.message, obj.error, obj.detail, obj.code]
+        .filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
+      if (parts.length > 0) return parts.join(' | ');
+      try {
+        return JSON.stringify(obj);
+      } catch {
+        return 'Bilinmeyen hata';
+      }
+    }
+    return String(input);
+  };
+
+  const handleSubmit = async () => {
+    if (!reason) { setErr('Lütfen bir şikayet sebebi seçin.'); return; }
+    setSubmitting(true);
+    setErr('');
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('report-illegal-listing', {
+        body: {
+          listing_id: listingId,
+          reason,
+          evidence: details.trim() ? { details: details.trim() } : null,
+        },
+      });
+
+      if (fnErr) {
+        throw fnErr;
+      }
+      if (!data?.success) {
+        throw data;
+      }
+
+      if (data?.duplicate) {
+        setDoneType('duplicate');
+        setDoneMessage(data?.message || 'Bu ilan için daha önce şikayet gönderdiniz.');
+        setDone(true);
+        return;
+      }
+
+      setDoneType('created');
+      setDoneMessage(data?.message || 'Ekibimiz ilanı inceleyecek ve gerekli işlemi yapacak.');
+      setDone(true);
+    } catch (e: unknown) {
+      const message = extractErrorMessage(e);
+      setErr('Şikayet gönderilemedi: ' + message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative"
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl"
+          aria-label="Kapat"
+        >
+          <i className="ri-close-line" />
+        </button>
+
+        {done ? (
+          <div className="text-center py-6">
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
+              doneType === 'duplicate' ? 'bg-amber-100' : 'bg-green-100'
+            }`}>
+              <i className={`text-3xl ${doneType === 'duplicate' ? 'ri-information-line text-amber-600' : 'ri-check-line text-green-600'}`} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              {doneType === 'duplicate' ? 'Bu İlanı Zaten Şikayet Ettiniz' : 'Şikayetiniz Alındı'}
+            </h3>
+            <p className="text-gray-500 text-sm">
+              {doneMessage || 'Ekibimiz ilanı inceleyecek ve gerekli işlemi yapacak. Bildiriminiz için teşekkür ederiz.'}
+            </p>
+            <button
+              onClick={onClose}
+              className="mt-6 px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors"
+            >
+              Kapat
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center space-x-3 mb-5">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <i className="ri-flag-2-line text-red-600 text-xl" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">İlanı Şikayet Et</h3>
+                <p className="text-xs text-gray-400 truncate max-w-[240px]">{listingTitle}</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-500 mb-4">
+              Şikayet sebebinizi seçin. Her şikayet ekibimiz tarafından incelenir ve herhangi bir aksiyon almadan önce değerlendirilir.
+            </p>
+
+            <div className="space-y-2 mb-4">
+              {REPORT_REASONS.map((r) => (
+                <label
+                  key={r}
+                  className={`flex items-center space-x-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${
+                    reason === r
+                      ? 'border-red-400 bg-red-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="report_reason"
+                    value={r}
+                    checked={reason === r}
+                    onChange={() => setReason(r)}
+                    className="accent-red-500"
+                  />
+                  <span className="text-sm text-gray-700">{r}</span>
+                </label>
+              ))}
+            </div>
+
+            <textarea
+              value={details}
+              onChange={(e) => setDetails(e.target.value.slice(0, 500))}
+              placeholder="Ek detay (isteğe bağlı, max 500 karakter)"
+              rows={3}
+              className="w-full border border-gray-200 rounded-xl p-3 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-red-300 mb-2"
+            />
+            <p className="text-xs text-gray-400 text-right mb-4">{details.length}/500</p>
+
+            {err && <p className="text-sm text-red-500 mb-3">{err}</p>}
+
+            <div className="flex space-x-3">
+              <button
+                onClick={onClose}
+                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors"
+              >
+                İptal
+              </button>
+              <button
+                onClick={() => void handleSubmit()}
+                disabled={submitting}
+                className="flex-1 py-3 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-xl font-medium transition-colors flex items-center justify-center space-x-2"
+              >
+                {submitting ? (
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <i className="ri-flag-2-line" />
+                )}
+                <span>{submitting ? 'Gönderiliyor...' : 'Şikayet Et'}</span>
+              </button>
+            </div>
+          </>
+        )}
+      </motion.div>
+    </div>
+  );
+}
 
 interface ListingDetail {
   id: string;
@@ -28,6 +227,7 @@ interface ListingDetail {
 
 export default function ListingDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const [showReport, setShowReport] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [listing, setListing] = useState<ListingDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -345,11 +545,29 @@ export default function ListingDetailPage() {
                     <span>WhatsApp ile İletişime Geç</span>
                   </button>
                 )}
+
+                <button
+                  onClick={() => setShowReport(true)}
+                  className="w-full py-3 border border-red-200 text-red-500 hover:bg-red-50 font-medium rounded-xl transition-colors flex items-center justify-center space-x-2 mt-2 text-sm"
+                >
+                  <i className="ri-flag-2-line" />
+                  <span>İlanı Şikayet Et</span>
+                </button>
               </div>
             </motion.div>
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showReport && (
+          <ReportModal
+            listingId={listing.id}
+            listingTitle={listing.title}
+            onClose={() => setShowReport(false)}
+          />
+        )}
+      </AnimatePresence>
 
       <Footer />
       <ChatBox />

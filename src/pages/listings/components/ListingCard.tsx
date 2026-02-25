@@ -194,12 +194,12 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
       className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all overflow-hidden cursor-pointer group"
       data-product-shop
     >
-      <div className="relative h-56">
+      <div className="relative h-64">
         <MagnifierImage
           src={listing.image}
           alt={listing.title}
-          containerClassName="h-56 bg-gray-50"
-          imageClassName="w-full h-full object-contain"
+          containerClassName="h-64 bg-gray-50"
+          imageClassName="w-full h-full object-cover"
         />
         {listing.isPremium && (
           <div className={`absolute top-3 right-3 px-3 py-1 ${premiumUi.className} text-white text-xs font-bold rounded-full flex items-center space-x-1`}>
