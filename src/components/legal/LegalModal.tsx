@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 interface LegalModalProps {
   isOpen: boolean;
   onClose: () => void;
-  type: 'privacy' | 'terms' | 'kvkk';
+  type: 'privacy' | 'terms' | 'kvkk' | 'cookies';
 }
 
 export default function LegalModal({ isOpen, onClose, type }: LegalModalProps) {
@@ -27,6 +27,8 @@ export default function LegalModal({ isOpen, onClose, type }: LegalModalProps) {
         return 'Kullanım Koşulları';
       case 'kvkk':
         return 'KVKK Aydınlatma Metni';
+      case 'cookies':
+        return 'Çerez Politikası';
       default:
         return '';
     }
@@ -122,6 +124,23 @@ export default function LegalModal({ isOpen, onClose, type }: LegalModalProps) {
               <h3 className="text-xl font-semibold text-gray-900 mb-3">8. İletişim</h3>
               <p className="text-gray-700 leading-relaxed">
                 Gizlilik politikamız hakkında sorularınız için: <strong>destek@pazarglobal.com</strong>
+              </p>
+            </section>
+
+            <section>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">9. Saklama Süreleri ve Silme</h3>
+              <p className="text-gray-700 leading-relaxed mb-3">
+                Verileriniz, işleme amacı ortadan kalktığında veya yasal saklama süresi dolduğunda silinir,
+                yok edilir ya da anonim hale getirilir. Hesap kapatma talepleriniz, mevzuatın zorunlu tuttuğu
+                saklama yükümlülükleri saklı kalmak kaydıyla en kısa sürede işleme alınır.
+              </p>
+            </section>
+
+            <section>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">10. Politika Değişiklikleri</h3>
+              <p className="text-gray-700 leading-relaxed">
+                Gizlilik politikamızda yapılacak esaslı değişiklikler platform üzerinde duyurulur ve güncel metin
+                yayınlandığı tarihte yürürlüğe girer. Değişiklikleri düzenli olarak kontrol etmeniz önerilir.
               </p>
             </section>
 
@@ -252,6 +271,44 @@ export default function LegalModal({ isOpen, onClose, type }: LegalModalProps) {
             </section>
 
             <section>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">11. Şirket Bilgileri</h3>
+              <p className="text-gray-700 leading-relaxed">
+                Hizmet sağlayıcı: <strong>PazarGlobal</strong>. Ticari unvan, adres, MERSİS/VKN bilgileri ve
+                resmi iletişim kanalları, şirket bilgileri güncellendiğinde platform üzerinde ilan edilir.
+              </p>
+            </section>
+
+            <section>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">12. Moderasyon ve İtiraz Süreci</h3>
+              <p className="text-gray-700 leading-relaxed mb-3">
+                İlan kaldırma, gizleme veya hesap kısıtlama kararları platform güvenliği için alınabilir.
+                Kullanıcılar, alınan aksiyonlara karşı destek kanalı üzerinden itiraz edebilir.
+              </p>
+              <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <li>İtirazlar, makul süre içinde insan incelemesine alınır</li>
+                <li>Tekrarlayan ihlallerde hesap kalıcı olarak kapatılabilir</li>
+                <li>Yanlış değerlendirmelerde ilgili kayıt ve aksiyonlar güncellenebilir</li>
+              </ul>
+            </section>
+
+            <section>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">13. İade ve İptal Çerçevesi</h3>
+              <p className="text-gray-700 leading-relaxed">
+                Premium paket ve kredi satın alımlarında iade/iptal koşulları, yürürlükteki tüketici mevzuatı
+                ve hizmetin kullanılıp kullanılmadığına göre değerlendirilir. Teknik hata kaynaklı bakiye
+                düşümleri destek incelemesi sonucunda telafi edilebilir.
+              </p>
+            </section>
+
+            <section>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">14. Değişiklik Bildirimi</h3>
+              <p className="text-gray-700 leading-relaxed">
+                Kullanım koşullarında yapılacak esaslı değişiklikler yürürlük tarihinden önce platformda
+                duyurulur. Güncel metin yayımlandığında yeni işlemler açısından geçerli olur.
+              </p>
+            </section>
+
+            <section>
               <p className="text-sm text-gray-500 italic">
                 Son Güncelleme: 28 Ocak 2026
               </p>
@@ -322,6 +379,29 @@ export default function LegalModal({ isOpen, onClose, type }: LegalModalProps) {
             </section>
 
             <section>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">3.1 Hukuki Sebepler</h3>
+              <p className="text-gray-700 leading-relaxed mb-3">
+                Kişisel verileriniz KVKK m.5 ve m.6 kapsamında aşağıdaki hukuki sebeplere dayanılarak işlenebilir:
+              </p>
+              <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <li>Sözleşmenin kurulması ve ifası için gerekli olması</li>
+                <li>Veri sorumlusunun hukuki yükümlülüğünü yerine getirmesi</li>
+                <li>Bir hakkın tesisi, kullanılması veya korunması</li>
+                <li>Açık rıza gereken durumlarda açık rıza alınması</li>
+                <li>Meşru menfaat kapsamında güvenlik, suistimal önleme ve hizmet kalitesi faaliyetleri</li>
+              </ul>
+            </section>
+
+            <section>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">3.2 Yurt Dışına Veri Aktarımı</h3>
+              <p className="text-gray-700 leading-relaxed">
+                Kullandığımız altyapı ve teknoloji servislerinin bir kısmı yurt dışında bulunabilir.
+                Yurt dışı aktarım işlemleri, KVKK'nın yurt dışına veri aktarımına ilişkin hükümlerine uygun
+                şekilde ve gerekli teknik/idari tedbirler alınarak gerçekleştirilir.
+              </p>
+            </section>
+
+            <section>
               <h3 className="text-xl font-semibold text-gray-900 mb-3">4. Kişisel Verilerin Toplanma Yöntemi</h3>
               <p className="text-gray-700 leading-relaxed">
                 Kişisel verileriniz, platform üzerinden kayıt formları, ilan oluşturma araçları, WhatsApp 
@@ -337,6 +417,12 @@ export default function LegalModal({ isOpen, onClose, type }: LegalModalProps) {
                 yükümlülüklerine uygun olarak saklanır. Saklama süresinin dolması veya işleme amacının 
                 ortadan kalkması halinde verileriniz silinir, yok edilir veya anonim hale getirilir.
               </p>
+              <div className="bg-gray-50 p-4 rounded-lg mt-3 text-sm text-gray-700 leading-relaxed">
+                <p className="mb-1"><strong>Örnek saklama yaklaşımı:</strong></p>
+                <p>Hesap/profil verileri: hesap aktifliği süresince ve yasal yükümlülük süresince.</p>
+                <p>İlan ve işlem kayıtları: hizmet ifası ve uyuşmazlık yönetimi için gerekli süre boyunca.</p>
+                <p>Güvenlik logları: güvenlik ve suistimal önleme amaçlarıyla sınırlı süre boyunca.</p>
+              </div>
             </section>
 
             <section>
@@ -405,10 +491,63 @@ export default function LegalModal({ isOpen, onClose, type }: LegalModalProps) {
             </section>
 
             <section>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">10. Güncellemeler</h3>
+              <p className="text-gray-700 leading-relaxed">
+                Bu aydınlatma metni, mevzuat veya hizmet kapsamı değişikliklerine göre güncellenebilir.
+                Güncel sürüm platformda yayımlandığı tarihte yürürlüğe girer.
+              </p>
+            </section>
+
+            <section>
               <p className="text-sm text-gray-500 italic">
                 Bu aydınlatma metni, 6698 sayılı Kişisel Verilerin Korunması Kanunu uyarınca hazırlanmıştır.
                 <br />
                 Son Güncelleme: 28 Ocak 2026
+              </p>
+            </section>
+          </div>
+        );
+
+      case 'cookies':
+        return (
+          <div className="space-y-6">
+            <section>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">1. Çerez Nedir?</h3>
+              <p className="text-gray-700 leading-relaxed">
+                Çerezler, ziyaret ettiğiniz internet siteleri tarafından tarayıcınıza kaydedilen küçük metin
+                dosyalarıdır. PazarGlobal, temel platform işlevleri, güvenlik ve performans ölçümü için çerez
+                ve benzeri teknolojiler kullanabilir.
+              </p>
+            </section>
+
+            <section>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">2. Çerez Türleri</h3>
+              <ul className="list-disc list-inside space-y-2 text-gray-700 ml-4">
+                <li><strong>Zorunlu Çerezler:</strong> Oturum yönetimi, güvenlik ve temel işlevler</li>
+                <li><strong>İşlevsel Çerezler:</strong> Dil, tercih ve kullanıcı deneyimi ayarları</li>
+                <li><strong>Performans/Analitik Çerezleri:</strong> Trafik ve kullanım ölçümü</li>
+              </ul>
+            </section>
+
+            <section>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">3. Çerezleri Yönetme</h3>
+              <p className="text-gray-700 leading-relaxed">
+                Tarayıcı ayarlarınızdan çerezleri silebilir, engelleyebilir veya belirli çerez türlerine izin
+                verebilirsiniz. Zorunlu çerezlerin engellenmesi halinde platformun bazı fonksiyonları düzgün
+                çalışmayabilir.
+              </p>
+            </section>
+
+            <section>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">4. İletişim</h3>
+              <p className="text-gray-700 leading-relaxed">
+                Çerez politikası hakkında sorularınız için: <strong>destek@pazarglobal.com</strong>
+              </p>
+            </section>
+
+            <section>
+              <p className="text-sm text-gray-500 italic">
+                Son Güncelleme: 26 Şubat 2026
               </p>
             </section>
           </div>

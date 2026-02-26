@@ -6,7 +6,7 @@ import LegalModal from '../../components/legal/LegalModal';
 
 export default function AboutPage() {
   const [isScrolled, setIsScrolled] = useState(false);
-  const [legalModal, setLegalModal] = useState<{ isOpen: boolean; type: 'privacy' | 'terms' | 'kvkk' }>({ 
+  const [legalModal, setLegalModal] = useState<{ isOpen: boolean; type: 'privacy' | 'terms' | 'kvkk' | 'cookies' }>({ 
     isOpen: false, 
     type: 'privacy' 
   });
@@ -382,6 +382,12 @@ export default function AboutPage() {
                   className="block text-gray-400 hover:text-white transition-colors text-sm cursor-pointer text-left"
                 >
                   KVKK Aydınlatma Metni
+                </button>
+                <button
+                  onClick={() => setLegalModal({ isOpen: true, type: 'cookies' })}
+                  className="block text-gray-400 hover:text-white transition-colors text-sm cursor-pointer text-left"
+                >
+                  Çerez Politikası
                 </button>
               </div>
             </div>

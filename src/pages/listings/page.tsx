@@ -9,6 +9,20 @@ import { fetchListingsWithFilters, type DBListing } from '../../services/supabas
 import { supabase } from '../../lib/supabase';
 import type { Listing, FilterState } from '../../types/listing';
 
+const normalizeForSearch = (value: unknown): string => {
+  const text = String(value ?? '').trim().toLowerCase();
+  if (!text) return '';
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ı/g, 'i')
+    .replace(/ç/g, 'c')
+    .replace(/ğ/g, 'g')
+    .replace(/ö/g, 'o')
+    .replace(/ş/g, 's')
+    .replace(/ü/g, 'u');
+};
+
 // Resolve a Supabase storage path or direct URL to a public URL.
 // Supports both string arrays and object-based image entries.
 const resolveImageUrl = (entry?: unknown) => {
@@ -49,7 +63,7 @@ export default function ListingsPage() {
 
   // Only use real data from Supabase
   const [filteredListings, setFilteredListings] = useState<Listing[]>([]);
-  const [, setIsLoadingFromSupabase] = useState(false);
+  const [isLoadingFromSupabase, setIsLoadingFromSupabase] = useState(false);
 
   const [filters, setFilters] = useState<FilterState>({
     categories: [],
@@ -106,10 +120,12 @@ export default function ListingsPage() {
         // Apply client-side search filter
         let searchFiltered = convertedListings;
         if (filters.searchText.trim()) {
-          const searchLower = filters.searchText.toLowerCase();
+          const searchLower = normalizeForSearch(filters.searchText);
           searchFiltered = convertedListings.filter(item => 
-            item.title.toLowerCase().includes(searchLower) ||
-            item.description.toLowerCase().includes(searchLower)
+            normalizeForSearch(item.title).includes(searchLower) ||
+            normalizeForSearch(item.description).includes(searchLower) ||
+            normalizeForSearch(item.category).includes(searchLower) ||
+            normalizeForSearch(item.location).includes(searchLower)
           );
         }
 
@@ -316,7 +332,21 @@ export default function ListingsPage() {
 
             {/* Listings Grid/List */}
             <div className="flex-1">
-              {filteredListings.length === 0 ? (
+              {isLoadingFromSupabase ? (
+                <div className={viewMode === 'grid' ? 'grid md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+                  {Array.from({ length: viewMode === 'grid' ? 6 : 4 }).map((_, index) => (
+                    <div key={index} className="bg-white rounded-2xl shadow-md overflow-hidden animate-pulse">
+                      <div className={viewMode === 'grid' ? 'h-64 bg-gray-100' : 'h-48 bg-gray-100'} />
+                      <div className="p-5 space-y-3">
+                        <div className="h-5 bg-gray-100 rounded w-2/3" />
+                        <div className="h-4 bg-gray-100 rounded w-full" />
+                        <div className="h-4 bg-gray-100 rounded w-4/5" />
+                        <div className="h-6 bg-gray-100 rounded w-1/3 mt-2" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : filteredListings.length === 0 ? (
                 <div className="text-center py-20">
                   <i className="ri-inbox-line text-6xl text-gray-300 mb-4" />
                   <h3 className="text-xl font-semibold text-gray-600 mb-2">İlan Bulunamadı</h3>

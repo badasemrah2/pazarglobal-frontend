@@ -2,7 +2,7 @@ import { useState } from 'react';
 import LegalModal from '../../../components/legal/LegalModal';
 
 export default function Footer() {
-  const [legalModal, setLegalModal] = useState<{ isOpen: boolean; type: 'privacy' | 'terms' | 'kvkk' }>({ 
+  const [legalModal, setLegalModal] = useState<{ isOpen: boolean; type: 'privacy' | 'terms' | 'kvkk' | 'cookies' }>({ 
     isOpen: false, 
     type: 'privacy' 
   });
@@ -140,6 +140,14 @@ export default function Footer() {
                   className="text-gray-400 hover:text-white transition-colors cursor-pointer"
                 >
                   KVKK Aydınlatma Metni
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => setLegalModal({ isOpen: true, type: 'cookies' })}
+                  className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  Çerez Politikası
                 </button>
               </li>
             </ul>

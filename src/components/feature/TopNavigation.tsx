@@ -12,6 +12,7 @@ export default function TopNavigation({ isScrolled: isScrolledProp }: TopNavigat
   const location = useLocation();
   const [isScrolledInternal, setIsScrolledInternal] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const isScrolled = typeof isScrolledProp === 'boolean' ? isScrolledProp : isScrolledInternal;
 
@@ -43,6 +44,11 @@ export default function TopNavigation({ isScrolled: isScrolledProp }: TopNavigat
   };
 
   const isHomePage = location.pathname === '/';
+
+  const go = (path: string) => {
+    navigate(path);
+    setIsMobileMenuOpen(false);
+  };
 
   return (
     <nav
@@ -117,6 +123,19 @@ export default function TopNavigation({ isScrolled: isScrolledProp }: TopNavigat
 
           {/* Auth Buttons */}
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+              className={`md:hidden h-10 w-10 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                isScrolled || !isHomePage
+                  ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-white/85 text-gray-800 hover:bg-white'
+              }`}
+              aria-label="Menüyü Aç/Kapat"
+              title="Menü"
+            >
+              <i className={isMobileMenuOpen ? 'ri-close-line text-xl' : 'ri-menu-line text-xl'} />
+            </button>
+
             {user ? (
               <>
                 <button
@@ -127,7 +146,7 @@ export default function TopNavigation({ isScrolled: isScrolledProp }: TopNavigat
                 </button>
 
                 {/* Mobile quick actions */}
-                <div className="flex md:hidden items-center gap-2">
+                <div className="hidden md:hidden items-center gap-2">
                   <button
                     onClick={() => navigate('/listings')}
                     className={`h-10 w-10 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
@@ -196,7 +215,7 @@ export default function TopNavigation({ isScrolled: isScrolledProp }: TopNavigat
                 {/* Mobile quick action: Listings */}
                 <button
                   onClick={() => navigate('/listings')}
-                  className={`md:hidden h-10 w-10 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                  className={`hidden md:hidden h-10 w-10 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
                     isScrolled || !isHomePage
                       ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       : 'bg-white/85 text-gray-800 hover:bg-white'
@@ -210,6 +229,30 @@ export default function TopNavigation({ isScrolled: isScrolledProp }: TopNavigat
             )}
           </div>
         </div>
+
+        {isMobileMenuOpen && (
+          <div className="md:hidden pb-4 border-t border-gray-100">
+            <div className="pt-3 grid gap-2">
+              <button onClick={() => go('/')} className="text-left px-2 py-2 text-gray-700 hover:text-teal-600 font-medium">Ana Sayfa</button>
+              <button onClick={() => go('/listings')} className="text-left px-2 py-2 text-gray-700 hover:text-teal-600 font-medium">İlanlar</button>
+              <button onClick={() => go('/about')} className="text-left px-2 py-2 text-gray-700 hover:text-teal-600 font-medium">Hakkımızda</button>
+              <button onClick={() => go('/reviews')} className="text-left px-2 py-2 text-gray-700 hover:text-teal-600 font-medium">Yorumlar</button>
+
+              {user ? (
+                <>
+                  <button onClick={() => go('/create-listing')} className="text-left px-2 py-2 text-gray-700 hover:text-teal-600 font-medium">İlan Ver</button>
+                  <button onClick={() => go('/profile/listings')} className="text-left px-2 py-2 text-gray-700 hover:text-teal-600 font-medium">İlanlarım</button>
+                  <button onClick={() => go('/profile')} className="text-left px-2 py-2 text-gray-700 hover:text-teal-600 font-medium">Profil</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => go('/auth/login')} className="text-left px-2 py-2 text-gray-700 hover:text-teal-600 font-medium">Giriş Yap</button>
+                  <button onClick={() => go('/auth/register')} className="text-left px-2 py-2 text-gray-700 hover:text-teal-600 font-medium">Kayıt Ol</button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   );
