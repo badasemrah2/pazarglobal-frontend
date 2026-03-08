@@ -29,6 +29,8 @@ export default function VoiceChat({
   const lastEmittedTextRef = useRef('');
   const lastEmittedAtRef = useRef(0);
   const isStoppingRef = useRef(false);
+  const finalChunksRef = useRef<string[]>([]);
+  const flushTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     onTranscriptReadyRef.current = onTranscriptReady;
@@ -43,9 +45,53 @@ export default function VoiceChat({
       recognitionRef.current.continuous = false; // Single utterance mode reduces duplicate chunks on mobile
       recognitionRef.current.interimResults = true; // Show partial results
 
+      const collapseConsecutiveDuplicateWords = (text: string): string => {
+        const words = text.split(/\s+/).filter(Boolean);
+        if (words.length <= 1) return text.trim();
+
+        const collapsed: string[] = [];
+        for (const word of words) {
+          const prev = collapsed[collapsed.length - 1];
+          if (!prev || prev.toLocaleLowerCase('tr-TR') !== word.toLocaleLowerCase('tr-TR')) {
+            collapsed.push(word);
+          }
+        }
+        return collapsed.join(' ').trim();
+      };
+
+      const clearFlushTimer = () => {
+        if (flushTimerRef.current) {
+          window.clearTimeout(flushTimerRef.current);
+          flushTimerRef.current = null;
+        }
+      };
+
+      const flushFinalTranscript = () => {
+        clearFlushTimer();
+
+        const raw = finalChunksRef.current.join(' ').replace(/\s+/g, ' ').trim();
+        finalChunksRef.current = [];
+        if (!raw) return;
+
+        const dedupedRaw = collapseConsecutiveDuplicateWords(raw);
+        setTranscript(dedupedRaw);
+
+        const corrected = correctBrandNames(dedupedRaw).replace(/\s+/g, ' ').trim();
+        if (!corrected) return;
+
+        const now = Date.now();
+        if (corrected === lastEmittedTextRef.current && now - lastEmittedAtRef.current < 2000) {
+          return;
+        }
+
+        lastEmittedTextRef.current = corrected;
+        lastEmittedAtRef.current = now;
+        setCorrectedText(corrected);
+        onTranscriptReadyRef.current(corrected);
+      };
+
       recognitionRef.current.onresult = async (event: any) => {
         // Process only NEW results from resultIndex to avoid re-adding older final chunks.
-        let finalTranscript = '';
         let interimTranscript = '';
         const startIndex = typeof event.resultIndex === 'number' ? event.resultIndex : 0;
 
@@ -53,35 +99,28 @@ export default function VoiceChat({
           const chunk = String(event.results[i]?.[0]?.transcript || '').trim();
           if (!chunk) continue;
           if (event.results[i].isFinal) {
-            finalTranscript += `${chunk} `;
+            const normalizedChunk = chunk.replace(/\s+/g, ' ').trim();
+            const lastChunk = finalChunksRef.current[finalChunksRef.current.length - 1];
+            if (!lastChunk || lastChunk.toLocaleLowerCase('tr-TR') !== normalizedChunk.toLocaleLowerCase('tr-TR')) {
+              finalChunksRef.current.push(normalizedChunk);
+            }
           } else {
             interimTranscript += `${chunk} `;
           }
         }
 
-        // Show interim text while speaking; final text is handled below.
-        if (interimTranscript.trim()) {
-          setTranscript(interimTranscript.trim());
+        const mergedFinal = finalChunksRef.current.join(' ').trim();
+        const interimClean = interimTranscript.trim();
+        if (interimClean || mergedFinal) {
+          setTranscript(`${mergedFinal}${mergedFinal && interimClean ? ' ' : ''}${interimClean}`.trim());
         }
 
-        const normalizedFinal = finalTranscript.replace(/\s+/g, ' ').trim();
-        if (normalizedFinal) {
-          setTranscript(normalizedFinal);
-          // Quick brand correction (frontend only - no backend call)
-          const corrected = correctBrandNames(normalizedFinal).replace(/\s+/g, ' ').trim();
-
-          // Guard against duplicated emission (common on Android Chrome).
-          const now = Date.now();
-          if (corrected && corrected === lastEmittedTextRef.current && now - lastEmittedAtRef.current < 1500) {
-            return;
-          }
-
-          lastEmittedTextRef.current = corrected;
-          lastEmittedAtRef.current = now;
-          setCorrectedText(corrected);
-          onTranscriptReadyRef.current(corrected);
-          // Auto-stop after getting final result
-          stopListening();
+        if (finalChunksRef.current.length > 0) {
+          clearFlushTimer();
+          flushTimerRef.current = window.setTimeout(() => {
+            flushFinalTranscript();
+            stopListening();
+          }, 550);
         }
       };
 
@@ -92,6 +131,9 @@ export default function VoiceChat({
       };
 
       recognitionRef.current.onend = () => {
+        if (finalChunksRef.current.length > 0) {
+          flushFinalTranscript();
+        }
         isStoppingRef.current = false;
         setIsListening(false);
       };
@@ -150,6 +192,11 @@ export default function VoiceChat({
     setTranscript('');
     setCorrectedText('');
     isStoppingRef.current = false;
+    finalChunksRef.current = [];
+    if (flushTimerRef.current) {
+      window.clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
     
     if (recognitionRef.current) {
       try {
