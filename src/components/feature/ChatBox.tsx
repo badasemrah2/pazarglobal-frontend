@@ -33,6 +33,30 @@ const AGENT_API_BASE =
   (import.meta.env as any).NEXT_PUBLIC_AGENT_API_BASE?.trim() ||
   '';
 
+const isInvalidRefreshTokenError = (error: any): boolean => {
+  const message = String(error?.message || error || '').toLowerCase();
+  return message.includes('invalid refresh token') || message.includes('refresh token not found');
+};
+
+const getAccessTokenOrThrow = async (): Promise<string> => {
+  const sessionResult = await supabase.auth.getSession();
+  if (sessionResult.data?.session?.access_token) {
+    return sessionResult.data.session.access_token;
+  }
+
+  const refreshResult = await supabase.auth.refreshSession();
+  if (refreshResult.data?.session?.access_token) {
+    return refreshResult.data.session.access_token;
+  }
+
+  if (isInvalidRefreshTokenError(sessionResult.error) || isInvalidRefreshTokenError(refreshResult.error)) {
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+    throw new Error('Oturum süresi dolmuş görünüyor. Lütfen tekrar giriş yapın.');
+  }
+
+  throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+};
+
 // Generate or retrieve unique user ID
 const getUserId = (): string => {
   let userId = localStorage.getItem('web_user_id');
@@ -313,12 +337,7 @@ export default function ChatBox() {
     const phoneNumber = customUser?.phone || user?.phone;
     
     // Get Supabase session token for JWT auth
-    const { data: { session } } = await supabase.auth.getSession();
-    const accessToken = session?.access_token;
-    
-    if (!accessToken) {
-      throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
-    }
+    const accessToken = await getAccessTokenOrThrow();
     
     // Use V3 API endpoint - Single LLM Brain
     const endpoint = `${AGENT_API_BASE.replace(/\/$/, '')}/api/v3/message`;
@@ -367,13 +386,7 @@ export default function ChatBox() {
     const phoneNumber = customUser?.phone || user?.phone;
     
     // Get Supabase session token for JWT auth
-    const { data: { session } } = await supabase.auth.getSession();
-    const accessToken = session?.access_token;
-    
-    if (!accessToken) {
-      console.error('No session token for media analysis');
-      return false;
-    }
+    const accessToken = await getAccessTokenOrThrow();
     
     const endpoint = `${AGENT_API_BASE.replace(/\/$/, '')}/api/v3/webchat/media/analyze`;
     try {
@@ -444,6 +457,8 @@ export default function ChatBox() {
 
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
         errorMessage = 'Agent API adresine ulaşılamıyor. CORS veya network hatası olabilir.';
+      } else if (String(err?.message || '').toLowerCase().includes('oturum')) {
+        errorMessage = 'Oturum süreniz dolmuş olabilir. Lütfen tekrar giriş yapın.';
       } else if (err.message) {
         errorMessage = err.message;
       }

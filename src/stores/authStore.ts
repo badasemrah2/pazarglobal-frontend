@@ -2,6 +2,15 @@ import { create } from 'zustand';
 import { supabase, authHelpers } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
+const isInvalidRefreshTokenError = (error: any): boolean => {
+  const message = String(error?.message || error || '').toLowerCase();
+  return message.includes('invalid refresh token') || message.includes('refresh token not found');
+};
+
+const clearLocalAuthState = async () => {
+  await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+};
+
 interface Profile {
   id: string;
   full_name: string | null;
@@ -102,7 +111,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       // Supabase auth kontrol et
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error && isInvalidRefreshTokenError(error)) {
+        await clearLocalAuthState();
+        set({
+          user: null,
+          customUser: null,
+          profile: null,
+          isAuthenticated: false,
+        });
+        return false;
+      }
       if (user) {
         set({
           user,
@@ -209,7 +228,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       // Supabase auth kontrol et
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError && isInvalidRefreshTokenError(userError)) {
+        await clearLocalAuthState();
+        set({
+          user: null,
+          customUser: null,
+          profile: null,
+          isAuthenticated: false,
+          isLoading: false,
+        });
+        return;
+      }
       
       if (user) {
         // Profil bilgilerini getir
