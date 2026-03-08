@@ -1,6 +1,13 @@
-export type PremiumBadgeId = 'gold' | 'platinum' | 'diamond' | null | undefined;
+export type PremiumBadgeId = 'gold' | 'platinum' | 'diamond';
 
-export function getPremiumBadgeUI(badge: PremiumBadgeId) {
+type PremiumBadgeUI = {
+  id: PremiumBadgeId | null;
+  label: string;
+  icon: string;
+  className: string;
+};
+
+export function getPremiumBadgeUI(badge: string | null | undefined): PremiumBadgeUI {
   const id = String(badge || '').trim().toLowerCase();
 
   if (id === 'gold') {
@@ -31,7 +38,7 @@ export function getPremiumBadgeUI(badge: PremiumBadgeId) {
   }
 
   return {
-    id: null as const,
+    id: null,
     label: 'PREMIUM',
     icon: 'ri-vip-crown-fill',
     className: 'bg-gradient-to-r from-amber-400 to-orange-500',

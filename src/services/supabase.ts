@@ -198,5 +198,6 @@ export async function fetchListings(): Promise<DBListing[]> {
     condition: [],
     isPremium: false,
     dateRange: 'all',
+    searchText: '',
   });
 }
