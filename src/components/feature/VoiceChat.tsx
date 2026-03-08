@@ -26,6 +26,9 @@ export default function VoiceChat({
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const onTranscriptReadyRef = useRef(onTranscriptReady);
+  const lastEmittedTextRef = useRef('');
+  const lastEmittedAtRef = useRef(0);
+  const isStoppingRef = useRef(false);
 
   useEffect(() => {
     onTranscriptReadyRef.current = onTranscriptReady;
@@ -37,22 +40,44 @@ export default function VoiceChat({
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.lang = 'tr-TR';
-      recognitionRef.current.continuous = true; // Keep listening for longer
+      recognitionRef.current.continuous = false; // Single utterance mode reduces duplicate chunks on mobile
       recognitionRef.current.interimResults = true; // Show partial results
 
       recognitionRef.current.onresult = async (event: any) => {
-        // Get final transcript (when user stops speaking)
+        // Process only NEW results from resultIndex to avoid re-adding older final chunks.
         let finalTranscript = '';
-        for (let i = 0; i < event.results.length; i++) {
+        let interimTranscript = '';
+        const startIndex = typeof event.resultIndex === 'number' ? event.resultIndex : 0;
+
+        for (let i = startIndex; i < event.results.length; i++) {
+          const chunk = String(event.results[i]?.[0]?.transcript || '').trim();
+          if (!chunk) continue;
           if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
+            finalTranscript += `${chunk} `;
+          } else {
+            interimTranscript += `${chunk} `;
           }
         }
 
-        if (finalTranscript) {
-          setTranscript(finalTranscript);
+        // Show interim text while speaking; final text is handled below.
+        if (interimTranscript.trim()) {
+          setTranscript(interimTranscript.trim());
+        }
+
+        const normalizedFinal = finalTranscript.replace(/\s+/g, ' ').trim();
+        if (normalizedFinal) {
+          setTranscript(normalizedFinal);
           // Quick brand correction (frontend only - no backend call)
-          const corrected = correctBrandNames(finalTranscript);
+          const corrected = correctBrandNames(normalizedFinal).replace(/\s+/g, ' ').trim();
+
+          // Guard against duplicated emission (common on Android Chrome).
+          const now = Date.now();
+          if (corrected && corrected === lastEmittedTextRef.current && now - lastEmittedAtRef.current < 1500) {
+            return;
+          }
+
+          lastEmittedTextRef.current = corrected;
+          lastEmittedAtRef.current = now;
           setCorrectedText(corrected);
           onTranscriptReadyRef.current(corrected);
           // Auto-stop after getting final result
@@ -67,6 +92,7 @@ export default function VoiceChat({
       };
 
       recognitionRef.current.onend = () => {
+        isStoppingRef.current = false;
         setIsListening(false);
       };
     } else {
@@ -123,6 +149,7 @@ export default function VoiceChat({
     setError(null);
     setTranscript('');
     setCorrectedText('');
+    isStoppingRef.current = false;
     
     if (recognitionRef.current) {
       try {
@@ -136,6 +163,10 @@ export default function VoiceChat({
   };
 
   const stopListening = () => {
+    if (isStoppingRef.current) {
+      return;
+    }
+    isStoppingRef.current = true;
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
