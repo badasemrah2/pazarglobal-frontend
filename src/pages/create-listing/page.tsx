@@ -794,14 +794,14 @@ export default function CreateListingPage() {
       <TopNavigation isScrolled={isScrolled} />
 
       <div className="pt-24 pb-16">
-        <div className="max-w-4xl mx-auto px-6">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
           {/* Header with AI Toggle */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="mb-8"
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
               <h1 className="text-4xl lg:text-5xl font-display font-bold">
                 <span className="bg-gradient-primary bg-clip-text text-transparent">
                   Yeni İlan Oluştur
@@ -845,7 +845,7 @@ export default function CreateListingPage() {
                       <p className="text-sm text-white/90 mb-4">
                         Merhaba! İlan oluştururken size yardımcı olabilirim. Başlık önerileri, açıklama şablonları ve fiyat önerileri sunabilirim.
                       </p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <button
                           type="button"
                           onClick={generateTitleSuggestion}
@@ -920,14 +920,14 @@ export default function CreateListingPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
             onSubmit={handleSubmit}
-            className="bg-white rounded-3xl shadow-xl p-8 space-y-6"
+            className="bg-white rounded-3xl shadow-xl p-4 sm:p-8 space-y-6"
           >
             {/* Image Upload */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Ürün Resimleri <span className="text-red-500">*</span>
               </label>
-              <div className="grid grid-cols-5 gap-4">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 sm:gap-4">
                 {previewUrls.map((url, index) => (
                   <div key={index} className="relative group">
                     <img

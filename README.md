@@ -4,6 +4,18 @@
 
 PazarGlobal'in modern, responsive web arayüzü. Next.js ile geliştirilmiş, AI chatbot entegrasyonlu ilan platformu.
 
+> Not: Bu proje güncel durumda **Vite + React Router + TypeScript** ile çalışmaktadır (Next.js değil).
+
+## ✅ Production Readiness (Şu Anki Durum)
+
+- ✅ Supabase Auth + profile akışları aktif
+- ✅ Listings, listing detail, report flow ve admin moderasyon entegrasyonu aktif
+- ✅ Railway Agent API ile health + admin endpoint entegrasyonu doğrulandı
+- ✅ Mobil navigasyon ve temel UX iyileştirmeleri uygulandı
+- ⚠️ Tam kapsamlı E2E test ve performans optimizasyonu tamamlanmadı
+
+> Özet: Uygulama production'da çalışabilecek olgunlukta; performans/test sertleştirmesi önerilir.
+
 ---
 
 ## 📋 İçindekiler
@@ -71,7 +83,7 @@ PazarGlobal'in modern, responsive web arayüzü. Next.js ile geliştirilmiş, AI
 ## 🛠️ Teknoloji Stack
 
 ```
-Framework:      Next.js 14 (App Router)
+Framework:      Vite + React 18 + React Router
 Language:       TypeScript
 Styling:        Tailwind CSS
 UI Components:  Custom components (+ headlessui potansiyeli)
@@ -82,6 +94,22 @@ State:          React Context / Local State
 Forms:          React Hook Form (potansiyel)
 Deployment:     Vercel (planned)
 ```
+
+## 🚀 Go-Live Checklist
+
+- [ ] `.env` / `.env.local` değerleri doğrulandı (`VITE_SUPABASE_*`, `VITE_AGENT_API_BASE`)
+- [ ] Agent API bağlantısı canlı doğrulandı (`/api/admin/health` 200)
+- [ ] Report akışı test edildi (ilk şikayet + duplicate senaryosu)
+- [ ] Admin panelde illegal reports + image safety flags görüntüleme test edildi
+- [ ] Mobil menü ve auth akışları gerçek cihazda smoke test edildi
+
+## 🗺️ Gelecek Özellikler
+
+- Listings için server-side pagination / infinite query optimizasyonu
+- ChatBox refactor (büyük dosyanın modüllere ayrılması)
+- Kayıt/giriş akışlarında daha güçlü form yardımcıları ve hata rehberliği
+- Moderasyon ekranı için gelişmiş filtre presetleri ve dışa aktarma
+- Lighthouse / Web Vitals iyileştirmeleri
 
 ---
 

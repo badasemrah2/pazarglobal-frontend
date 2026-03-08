@@ -11,7 +11,7 @@ const CONDITIONS: Array<ReturnType<typeof toCanonicalCondition>> = ['Sıfır', '
 
 // Toast bileşeni - otomatik kaybolan bildirim
 const Toast = ({ message, type }: { message: string; type: 'success' | 'error' }) => (
-  <div className={`fixed top-6 right-6 px-6 py-3 rounded-full shadow-lg text-white font-medium z-[60] animate-in fade-in slide-in-from-top-2 ${
+  <div className={`fixed top-4 left-4 right-4 sm:left-auto sm:right-6 sm:top-6 px-4 sm:px-6 py-3 rounded-2xl sm:rounded-full shadow-lg text-white font-medium z-[60] animate-in fade-in slide-in-from-top-2 ${
     type === 'success' ? 'bg-green-500' : 'bg-red-500'
   }`}>
     {message}
@@ -367,15 +367,15 @@ export default function ManageListingsPage() {
       {success && <Toast message={success} type="success" />}
       {error && <Toast message={error} type="error" />}
       <div className="pt-24 pb-16">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="flex items-center justify-between mb-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
             <div>
               <h1 className="text-4xl font-display font-bold text-gray-900 mb-2">
                 <span className="bg-gradient-primary bg-clip-text text-transparent">İlanlarım</span>
               </h1>
               <p className="text-gray-600">{listings.length} ilan bulundu</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               {/* View Mode Toggle */}
               <div className="flex items-center bg-white rounded-full shadow-md p-1">
                 <button
@@ -401,7 +401,7 @@ export default function ManageListingsPage() {
               </div>
               <button
                 onClick={() => navigate('/create-listing')}
-                className="px-6 py-3 bg-gradient-primary text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition-all whitespace-nowrap cursor-pointer"
+                className="w-full sm:w-auto px-6 py-3 bg-gradient-primary text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition-all whitespace-nowrap cursor-pointer"
               >
                 Yeni İlan Oluştur
               </button>

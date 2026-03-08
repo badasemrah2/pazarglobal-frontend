@@ -145,34 +145,9 @@ export default function TopNavigation({ isScrolled: isScrolledProp }: TopNavigat
                   İlan Ver
                 </button>
 
-                {/* Mobile quick actions */}
-                <div className="hidden md:hidden items-center gap-2">
-                  <button
-                    onClick={() => navigate('/listings')}
-                    className={`h-10 w-10 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                      isScrolled || !isHomePage
-                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        : 'bg-white/85 text-gray-800 hover:bg-white'
-                    }`}
-                    aria-label="İlanlar"
-                    title="İlanlar"
-                  >
-                    <i className="ri-search-line text-xl" />
-                  </button>
-                  <button
-                    onClick={() => navigate('/create-listing')}
-                    className="h-10 px-4 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold transition-colors cursor-pointer whitespace-nowrap flex items-center gap-2"
-                    aria-label="İlan Ver"
-                    title="İlan Ver"
-                  >
-                    <i className="ri-add-line text-xl" />
-                    <span className="text-sm">İlan Ver</span>
-                  </button>
-                </div>
-
                 <button
                   onClick={() => navigate('/profile/listings')}
-                  className={`font-medium transition-colors cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+                  className={`hidden md:flex font-medium transition-colors cursor-pointer whitespace-nowrap items-center gap-2 ${
                     isScrolled || !isHomePage
                       ? 'text-gray-700 hover:text-teal-600'
                       : 'text-white hover:text-teal-200'
@@ -183,7 +158,7 @@ export default function TopNavigation({ isScrolled: isScrolledProp }: TopNavigat
                 </button>
                 <button
                   onClick={() => navigate('/profile')}
-                  className={`font-medium transition-colors cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+                  className={`hidden md:flex font-medium transition-colors cursor-pointer whitespace-nowrap items-center gap-2 ${
                     isScrolled || !isHomePage
                       ? 'text-gray-700 hover:text-teal-600'
                       : 'text-white hover:text-teal-200'
@@ -197,7 +172,7 @@ export default function TopNavigation({ isScrolled: isScrolledProp }: TopNavigat
               <>
                 <button
                   onClick={() => navigate('/auth/login')}
-                  className={`font-medium transition-colors cursor-pointer whitespace-nowrap ${
+                  className={`hidden md:block font-medium transition-colors cursor-pointer whitespace-nowrap ${
                     isScrolled || !isHomePage
                       ? 'text-gray-700 hover:text-teal-600'
                       : 'text-white hover:text-teal-200'
@@ -207,23 +182,9 @@ export default function TopNavigation({ isScrolled: isScrolledProp }: TopNavigat
                 </button>
                 <button
                   onClick={() => navigate('/auth/register')}
-                  className="bg-teal-600 hover:bg-teal-700 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                  className="hidden md:block bg-teal-600 hover:bg-teal-700 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
                 >
                   Kayıt Ol
-                </button>
-
-                {/* Mobile quick action: Listings */}
-                <button
-                  onClick={() => navigate('/listings')}
-                  className={`hidden md:hidden h-10 w-10 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                    isScrolled || !isHomePage
-                      ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      : 'bg-white/85 text-gray-800 hover:bg-white'
-                  }`}
-                  aria-label="İlanlar"
-                  title="İlanlar"
-                >
-                  <i className="ri-search-line text-xl" />
                 </button>
               </>
             )}

@@ -57,7 +57,7 @@ export default function VoiceSelector({ selectedVoice, onVoiceSelect }: VoiceSel
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: -10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="absolute top-12 right-0 bg-gray-800 rounded-lg shadow-xl p-3 w-[320px] max-h-[300px] overflow-y-auto overflow-x-hidden z-[9999]"
+          className="absolute top-12 right-0 z-[9999] w-[min(320px,calc(100vw-2rem))] max-h-[300px] overflow-y-auto overflow-x-hidden rounded-lg bg-gray-800 p-3 shadow-xl"
         >
           <div className="text-xs text-gray-400 px-2 py-1 font-semibold border-b border-gray-700 mb-2">
             Ses Seçin: {voices.length > 0 ? `(${voices.length} ses)` : 'Yükleniyor...'}

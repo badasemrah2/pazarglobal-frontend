@@ -994,7 +994,7 @@ export default function ChatBox() {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-6 right-6 w-[440px] h-[700px] bg-white rounded-3xl shadow-2xl z-50 flex flex-col overflow-hidden"
+            className="fixed inset-0 z-50 flex h-[100dvh] w-screen flex-col overflow-hidden bg-white md:inset-auto md:bottom-6 md:right-6 md:h-[700px] md:w-[440px] md:rounded-3xl md:shadow-2xl"
           >
             {/* Header */}
             <div className="bg-gradient-primary p-4 flex items-center justify-between">
@@ -1287,7 +1287,7 @@ export default function ChatBox() {
             </div>
 
             {/* Input Area */}
-            <div className="p-4 bg-white border-t border-gray-200">
+            <div className="border-t border-gray-200 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:p-4">
               {isRecording && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
@@ -1308,7 +1308,7 @@ export default function ChatBox() {
                 </motion.div>
               )}
 
-              <div className="flex items-center space-x-2">
+              <div className="flex min-w-0 items-center gap-2">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -1321,7 +1321,7 @@ export default function ChatBox() {
                 <button
                   onClick={handleFileUpload}
                   disabled={isTyping}
-                  className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="h-10 w-10 shrink-0 cursor-pointer rounded-full text-gray-600 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center"
                   aria-label="Fotoğraf yükle"
                 >
                   <i className="ri-attachment-line text-xl" />
@@ -1338,7 +1338,7 @@ export default function ChatBox() {
                   }}
                   placeholder={voiceMode ? "🎤 Sesli mod aktif - Mikrofona konuşun veya yazın" : "Mesajınızı yazın..."}
                   disabled={isTyping}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-full resize-none focus:outline-none focus:border-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  className="min-w-0 flex-1 resize-none rounded-full border border-gray-300 px-4 py-2 text-sm transition-colors focus:border-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                   rows={1}
                 />
 
@@ -1357,7 +1357,7 @@ export default function ChatBox() {
                   onClick={handleSendMessage}
                   disabled={!inputValue.trim() || isTyping}
                   title="Gönder"
-                  className="w-10 h-10 bg-gradient-primary text-white rounded-full flex items-center justify-center hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="h-10 w-10 shrink-0 cursor-pointer rounded-full bg-gradient-primary text-white transition-all hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center"
                 >
                   <i className="ri-send-plane-fill text-lg" />
                 </button>
