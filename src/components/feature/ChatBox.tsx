@@ -57,6 +57,24 @@ const getAccessTokenOrThrow = async (): Promise<string> => {
   throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
 };
 
+const getVerifiedWebchatUserContext = async (
+  fallbackUserId: string,
+  fallbackPhone?: string
+): Promise<{ userId: string; phone?: string; accessToken: string }> => {
+  const accessToken = await getAccessTokenOrThrow();
+
+  const { data: userData, error } = await supabase.auth.getUser(accessToken);
+  if (error || !userData?.user?.id) {
+    throw new Error('Kimlik doğrulaması başarısız. Lütfen tekrar giriş yapın.');
+  }
+
+  return {
+    userId: userData.user.id,
+    phone: fallbackPhone,
+    accessToken,
+  };
+};
+
 // Generate or retrieve unique user ID
 const getUserId = (): string => {
   let userId = localStorage.getItem('web_user_id');
@@ -333,11 +351,11 @@ export default function ChatBox() {
     }
     
     // Get authenticated user context
-    const authenticatedUserId = customUser?.id || user?.id;
     const phoneNumber = customUser?.phone || user?.phone;
-    
-    // Get Supabase session token for JWT auth
-    const accessToken = await getAccessTokenOrThrow();
+    const { userId: verifiedUserId, accessToken } = await getVerifiedWebchatUserContext(
+      resolvedUserId,
+      phoneNumber || undefined
+    );
     
     // Use V3 API endpoint - Single LLM Brain
     const endpoint = `${AGENT_API_BASE.replace(/\/$/, '')}/api/v3/message`;
@@ -348,7 +366,7 @@ export default function ChatBox() {
         'Authorization': `Bearer ${accessToken}`,  // JWT token for security
       },
       body: JSON.stringify({
-        user_id: authenticatedUserId || resolvedUserId, // Real Supabase UUID
+        user_id: verifiedUserId,
         message,
         media_urls: mediaPayload.publicUrls.length > 0 ? mediaPayload.publicUrls : undefined,
         channel: 'webchat',
@@ -382,11 +400,11 @@ export default function ChatBox() {
     }
     
     // Get authenticated user context
-    const authenticatedUserId = customUser?.id || user?.id;
     const phoneNumber = customUser?.phone || user?.phone;
-    
-    // Get Supabase session token for JWT auth
-    const accessToken = await getAccessTokenOrThrow();
+    const { userId: verifiedUserId, phone, accessToken } = await getVerifiedWebchatUserContext(
+      resolvedUserId,
+      phoneNumber || undefined
+    );
     
     const endpoint = `${AGENT_API_BASE.replace(/\/$/, '')}/api/v3/webchat/media/analyze`;
     try {
@@ -397,9 +415,9 @@ export default function ChatBox() {
           'Authorization': `Bearer ${accessToken}`,  // JWT token for security
         },
         body: JSON.stringify({
-          session_id: authenticatedUserId || resolvedUserId, // Real user ID
-          user_id: authenticatedUserId || resolvedUserId, // Real Supabase UUID
-          phone_number: phoneNumber || undefined, // Optional
+          session_id: verifiedUserId,
+          user_id: verifiedUserId,
+          phone_number: phone || undefined,
           media_urls: publicUrls,
         }),
       });
