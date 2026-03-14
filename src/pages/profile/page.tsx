@@ -20,6 +20,7 @@ export default function ProfilePage() {
     display_name: '',
     bio: '',
     location: '',
+    phone_visibility: 'public' as 'public' | 'hidden',
   });
 
   const [securityData, setSecurityData] = useState({
@@ -54,6 +55,7 @@ export default function ProfilePage() {
           display_name: profile.display_name || '',
           bio: profile.bio || '',
           location: profile.location || '',
+          phone_visibility: (profile.phone_visibility === 'hidden' ? 'hidden' : 'public') as 'public' | 'hidden',
         });
       }
 
@@ -93,6 +95,7 @@ export default function ProfilePage() {
           display_name: profileData.display_name,
           bio: profileData.bio,
           location: profileData.location,
+          phone_visibility: profileData.phone_visibility,
         })
         .eq('id', user.id);
 
@@ -215,6 +218,15 @@ export default function ProfilePage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Profil Ayarları</h1>
           <p className="text-gray-600">Hesap bilgilerinizi ve güvenlik ayarlarınızı yönetin</p>
+          <div className="mt-4">
+            <button
+              onClick={() => navigate('/profile/messages')}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold"
+            >
+              <i className="ri-mail-open-line" />
+              Mesaj Kutum
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -291,6 +303,38 @@ export default function ProfilePage() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
                   placeholder="Şehir, Ülke"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Telefon Görünürlüğü
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setProfileData({ ...profileData, phone_visibility: 'public' })}
+                    className={`px-4 py-3 rounded-lg border text-left transition-colors ${
+                      profileData.phone_visibility === 'public'
+                        ? 'border-teal-500 bg-teal-50 text-teal-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-teal-300'
+                    }`}
+                  >
+                    <div className="font-semibold text-sm">Telefonum Görünsün</div>
+                    <div className="text-xs opacity-80 mt-1">İlanlarda WhatsApp ile iletişim görünür.</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProfileData({ ...profileData, phone_visibility: 'hidden' })}
+                    className={`px-4 py-3 rounded-lg border text-left transition-colors ${
+                      profileData.phone_visibility === 'hidden'
+                        ? 'border-teal-500 bg-teal-50 text-teal-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-teal-300'
+                    }`}
+                  >
+                    <div className="font-semibold text-sm">Telefonumu Gizle</div>
+                    <div className="text-xs opacity-80 mt-1">İlanlarda sadece mesaj linki görünür.</div>
+                  </button>
+                </div>
               </div>
 
               <button

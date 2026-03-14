@@ -143,15 +143,19 @@ serve(async (req) => {
     // 2) Fetch profile (best-effort) for denormalized listing fields.
     let userName = 'Satıcı';
     let userPhone = '';
+    let phoneVisibility: 'public' | 'hidden' = 'public';
+    let nameVisibility: 'public' | 'hidden' = 'public';
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, phone')
+        .select('full_name, phone, phone_visibility, name_visibility')
         .eq('id', userId)
         .maybeSingle();
 
       if (profile?.full_name) userName = profile.full_name;
       if (profile?.phone) userPhone = profile.phone;
+      if (profile?.phone_visibility === 'hidden') phoneVisibility = 'hidden';
+      if (profile?.name_visibility === 'hidden') nameVisibility = 'hidden';
     } catch {
       // ignore
     }
@@ -178,6 +182,8 @@ serve(async (req) => {
         metadata: body.metadata ?? {},
         user_name: userName,
         user_phone: userPhone,
+        phone_visibility: phoneVisibility,
+        name_visibility: nameVisibility,
         status: 'active',
         is_premium: false,
         view_count: 0,

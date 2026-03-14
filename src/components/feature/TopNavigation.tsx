@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { fetchOwnerInbox } from '../../services/agentApi';
 
 type TopNavigationProps = {
   isScrolled?: boolean;
@@ -13,6 +14,7 @@ export default function TopNavigation({ isScrolled: isScrolledProp }: TopNavigat
   const [isScrolledInternal, setIsScrolledInternal] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
 
   const isScrolled = typeof isScrolledProp === 'boolean' ? isScrolledProp : isScrolledInternal;
 
@@ -37,6 +39,36 @@ export default function TopNavigation({ isScrolled: isScrolledProp }: TopNavigat
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    let timer: number | undefined;
+
+    const refreshUnread = async () => {
+      if (!user) {
+        if (mounted) setUnreadMessageCount(0);
+        return;
+      }
+      try {
+        const rows = await fetchOwnerInbox(50);
+        if (!mounted) return;
+        const total = rows.reduce((sum, row) => sum + Number(row.owner_unread_count || 0), 0);
+        setUnreadMessageCount(total);
+      } catch {
+        if (mounted) setUnreadMessageCount(0);
+      }
+    };
+
+    void refreshUnread();
+    timer = window.setInterval(() => {
+      void refreshUnread();
+    }, 20000);
+
+    return () => {
+      mounted = false;
+      if (timer) window.clearInterval(timer);
+    };
+  }, [user]);
 
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -157,6 +189,23 @@ export default function TopNavigation({ isScrolled: isScrolledProp }: TopNavigat
                   <span className="hidden md:inline">İlanlarım</span>
                 </button>
                 <button
+                  onClick={() => navigate('/profile/messages')}
+                  className={`hidden md:flex font-medium transition-colors cursor-pointer whitespace-nowrap items-center gap-2 relative ${
+                    isScrolled || !isHomePage
+                      ? 'text-gray-700 hover:text-teal-600'
+                      : 'text-white hover:text-teal-200'
+                  }`}
+                >
+                  <i className="ri-mail-line text-xl"></i>
+                  <span className="hidden md:inline">Mesajlar</span>
+                  {unreadMessageCount > 0 && (
+                    <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] leading-[18px] text-center">
+                      {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+                    </span>
+                  )}
+                </button>
+
+                <button
                   onClick={() => navigate('/profile')}
                   className={`hidden md:flex font-medium transition-colors cursor-pointer whitespace-nowrap items-center gap-2 ${
                     isScrolled || !isHomePage
@@ -203,6 +252,7 @@ export default function TopNavigation({ isScrolled: isScrolledProp }: TopNavigat
                 <>
                   <button onClick={() => go('/create-listing')} className="text-left px-2 py-2 text-gray-700 hover:text-teal-600 font-medium">İlan Ver</button>
                   <button onClick={() => go('/profile/listings')} className="text-left px-2 py-2 text-gray-700 hover:text-teal-600 font-medium">İlanlarım</button>
+                  <button onClick={() => go('/profile/messages')} className="text-left px-2 py-2 text-gray-700 hover:text-teal-600 font-medium">Mesajlarım{unreadMessageCount > 0 ? ` (${unreadMessageCount > 99 ? '99+' : unreadMessageCount})` : ''}</button>
                   <button onClick={() => go('/profile')} className="text-left px-2 py-2 text-gray-700 hover:text-teal-600 font-medium">Profil</button>
                 </>
               ) : (

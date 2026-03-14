@@ -15,6 +15,7 @@ import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 import './ChatBox.css';
 import { conditionBadgeClass, toCanonicalCondition } from '../../lib/condition';
+import { fetchPublicContactLink } from '../../services/agentApi';
 
 type Message = {
   id: string;
@@ -245,6 +246,7 @@ export default function ChatBox() {
   const [error, setError] = useState<string | null>(null);
   const [displayCount, setDisplayCount] = useState(3);
   const [detailListing, setDetailListing] = useState<any>(null);
+  const [detailContactLoading, setDetailContactLoading] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -840,6 +842,22 @@ export default function ChatBox() {
       return `${supabaseUrl}/storage/v1/object/public/product-images/${imagePath}`;
     }) || [];
 
+    const handleDetailContact = async () => {
+      const listingId = String(detailListing?.id || '').trim();
+      if (!listingId || detailContactLoading) return;
+      try {
+        setDetailContactLoading(true);
+        const path = `/contact/listing/${encodeURIComponent(listingId)}`;
+        setDetailListing(null);
+        setIsOpen(false);
+        navigate(path);
+      } catch {
+        alert('Mesaj bağlantısı oluşturulamadı. Lütfen tekrar deneyin.');
+      } finally {
+        setDetailContactLoading(false);
+      }
+    };
+
     return (
       <motion.div
         initial={{ opacity: 0 }}
@@ -920,6 +938,14 @@ export default function ChatBox() {
 
             {/* Actions */}
             <div className="flex space-x-3">
+              <button
+                onClick={() => void handleDetailContact()}
+                disabled={detailContactLoading}
+                className="flex-1 bg-gradient-primary hover:opacity-90 text-white font-semibold py-3 rounded-xl flex items-center justify-center space-x-2 transition-colors disabled:opacity-60"
+              >
+                <i className="ri-message-3-line text-xl" />
+                <span>{detailContactLoading ? 'Hazırlanıyor...' : 'Mesaj Gönder'}</span>
+              </button>
               <button 
                 onClick={() => {
                   navigate(`/listing/${detailListing.id}`);

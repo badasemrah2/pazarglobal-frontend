@@ -168,7 +168,7 @@ export default function CreateListingPage() {
     price: '',
     category: '',
     condition: '',
-    location: ''
+    location: '',
   });
 
   const [errors, setErrors] = useState<Partial<FormData>>({});

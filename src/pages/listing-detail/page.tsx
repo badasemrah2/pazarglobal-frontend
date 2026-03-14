@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import TopNavigation from '../../components/feature/TopNavigation';
 import Footer from '../home/components/Footer';
@@ -223,14 +223,18 @@ interface ListingDetail {
   created_at: string;
   user_name: string;
   user_phone: string;
+  phone_visibility: 'public' | 'hidden';
+  name_visibility: 'public' | 'hidden';
 }
 
 export default function ListingDetailPage() {
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [showReport, setShowReport] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [listing, setListing] = useState<ListingDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [contactLoading, setContactLoading] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
@@ -328,7 +332,9 @@ export default function ListingDetailPage() {
           views: data.view_count || 0,
           created_at: data.created_at,
           user_name: data.user_name || 'Satıcı',
-          user_phone: data.user_phone || ''
+          user_phone: data.user_phone || '',
+          phone_visibility: ((data as any).phone_visibility || 'public') as 'public' | 'hidden',
+          name_visibility: ((data as any).name_visibility || 'public') as 'public' | 'hidden',
         });
 
         // Increment views
@@ -360,6 +366,18 @@ export default function ListingDetailPage() {
     if (listing?.user_phone) {
       const message = encodeURIComponent(`Merhaba, "${listing.title}" ilanınız hakkında bilgi almak istiyorum.`);
       window.open(`https://wa.me/${listing.user_phone.replace(/\D/g, '')}?text=${message}`, '_blank');
+    }
+  };
+
+  const handleContactMessage = async () => {
+    if (!listing?.id || contactLoading) return;
+    try {
+      setContactLoading(true);
+      navigate(`/contact/listing/${encodeURIComponent(listing.id)}`);
+    } catch {
+      alert('Mesaj bağlantısı oluşturulamadı. Lütfen tekrar deneyin.');
+    } finally {
+      setContactLoading(false);
     }
   };
 
@@ -528,15 +546,26 @@ export default function ListingDetailPage() {
                 <h2 className="text-xl font-bold text-gray-900 mb-4">Satıcı Bilgileri</h2>
                 <div className="flex items-center space-x-4 mb-6">
                   <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                    {listing.user_name.charAt(0).toUpperCase()}
+                    {(listing.name_visibility === 'hidden' ? 'İ' : listing.user_name).charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900">{listing.user_name}</p>
+                    <p className="font-semibold text-gray-900">
+                      {listing.name_visibility === 'hidden' ? 'İlan Sahibi' : listing.user_name}
+                    </p>
                     <p className="text-sm text-gray-500">Satıcı</p>
                   </div>
                 </div>
 
-                {listing.user_phone && (
+                <button
+                  onClick={() => void handleContactMessage()}
+                  disabled={contactLoading}
+                  className="w-full py-4 bg-gradient-primary text-white font-semibold rounded-xl hover:shadow-lg transition-all flex items-center justify-center space-x-2 cursor-pointer whitespace-nowrap mb-2 disabled:opacity-60"
+                >
+                  <i className="ri-message-3-line text-xl" />
+                  <span>{contactLoading ? 'Bağlantı hazırlanıyor...' : 'İlan Sahibine Mesaj Gönder'}</span>
+                </button>
+
+                {listing.phone_visibility !== 'hidden' && listing.user_phone && (
                   <button
                     onClick={handleWhatsAppContact}
                     className="w-full py-4 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all flex items-center justify-center space-x-2 cursor-pointer whitespace-nowrap"

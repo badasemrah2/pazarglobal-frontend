@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Listing } from '../../../types/listing';
 import { toCanonicalCondition } from '../../../lib/condition';
 import { getPremiumBadgeUI } from '../../../lib/premiumBadge';
+import { fetchPublicContactLink } from '../../../services/agentApi';
 
 interface ListingCardProps {
   listing: Listing;
@@ -106,6 +107,21 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
     navigate(`/listing/${listing.id}`);
   };
 
+  const handleContactClick = async (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    try {
+      const res = await fetchPublicContactLink(listing.id);
+      const path = res?.data?.contact_path;
+      if (path) {
+        navigate(path);
+        return;
+      }
+      alert('Mesaj linki şu an oluşturulamadı.');
+    } catch {
+      alert('Mesaj linki hazırlanamadı. Lütfen tekrar deneyin.');
+    }
+  };
+
   if (viewMode === 'list') {
     return (
       <motion.div
@@ -179,6 +195,16 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
                 <span>{formatDate(listing.createdAt)}</span>
               </div>
             </div>
+
+            <div className="pt-3 mt-3 border-t border-gray-100 flex justify-end">
+              <button
+                type="button"
+                onClick={(event) => void handleContactClick(event)}
+                className="px-4 py-2 rounded-full bg-gradient-primary text-white text-xs font-semibold hover:shadow-md transition-all"
+              >
+                İlan Sahibine Mesaj Gönder
+              </button>
+            </div>
           </div>
         </div>
       </motion.div>
@@ -246,6 +272,16 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
             </div>
             <span>{formatDate(listing.createdAt)}</span>
           </div>
+        </div>
+
+        <div className="pt-3 mt-3 border-t border-gray-100 flex justify-end">
+          <button
+            type="button"
+            onClick={(event) => void handleContactClick(event)}
+            className="px-4 py-2 rounded-full bg-gradient-primary text-white text-xs font-semibold hover:shadow-md transition-all"
+          >
+            Mesaj Gönder
+          </button>
         </div>
       </div>
     </motion.div>

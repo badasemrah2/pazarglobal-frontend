@@ -12,6 +12,8 @@ const RegisterPage = lazy(() => import('../pages/auth/register/page'));
 const WhatsAppResetPinPage = lazy(() => import('../pages/auth/whatsapp-reset-pin/page'));
 const ProfilePage = lazy(() => import('../pages/profile/page'));
 const ManageListingsPage = lazy(() => import('../pages/profile/listings/page'));
+const ProfileMessagesPage = lazy(() => import('../pages/profile/messages/page'));
+const ContactPage = lazy(() => import('../pages/contact/page'));
 const NotFound = lazy(() => import('../pages/NotFound'));
 
 const routes: RouteObject[] = [
@@ -58,6 +60,18 @@ const routes: RouteObject[] = [
   {
     path: '/profile/listings',
     element: <ManageListingsPage />,
+  },
+  {
+    path: '/profile/messages',
+    element: <ProfileMessagesPage />,
+  },
+  {
+    path: '/contact/:token',
+    element: <ContactPage />,
+  },
+  {
+    path: '/contact/listing/:listingId',
+    element: <ContactPage />,
   },
   {
     path: '*',
