@@ -101,6 +101,22 @@ const parseListings = (content: string): { cleanContent: string; listings: any[]
   return { cleanContent: content, listings: [] };
 };
 
+const toClickableMarkdown = (content: string): string => {
+  if (!content) return '';
+
+  // Convert plain http/https URLs to markdown links so ReactMarkdown renders them clickable.
+  // Example: "Mesaj Gönder: https://..." -> "Mesaj Gönder: [https://...](https://...)"
+  return content.replace(/(https?:\/\/[^\s<>()\[\]]+)/g, (rawUrl: string) => {
+    const trailingMatch = rawUrl.match(/[.,!?;:]+$/);
+    const trailing = trailingMatch ? trailingMatch[0] : '';
+    const url = trailing ? rawUrl.slice(0, -trailing.length) : rawUrl;
+
+    if (!url) return rawUrl;
+
+    return `[${url}](${url})${trailing}`;
+  });
+};
+
 // Deduplicate path list (keeps order of first occurrence)
 const dedupePaths = (paths: string[]): string[] => {
   const seen = new Set<string>();
@@ -1200,7 +1216,7 @@ export default function ChatBox() {
                                       },
                                     }}
                                   >
-                                    {cleanContent.replace(/\n{3,}/g, '\n\n').trim()}
+                                    {toClickableMarkdown(cleanContent.replace(/\n{3,}/g, '\n\n').trim())}
                                   </ReactMarkdown>
                                 )}
                               </div>
