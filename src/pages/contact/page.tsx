@@ -4,6 +4,7 @@ import TopNavigation from '../../components/feature/TopNavigation';
 import Footer from '../home/components/Footer';
 import ChatBox from '../../components/feature/ChatBox';
 import { fetchPublicContactLink, resolveContactToken, sendMessageViaContactToken } from '../../services/agentApi';
+import { supabase } from '../../lib/supabase';
 
 const sessionStorageKey = 'pg_contact_sender_session_id';
 
@@ -32,8 +33,28 @@ export default function ContactPage() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [resolvedToken, setResolvedToken] = useState('');
+  const [senderUserId, setSenderUserId] = useState<string | undefined>(undefined);
 
   const senderSessionId = useMemo(() => getOrCreateSenderSessionId(), []);
+
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (!mounted) return;
+        const uid = data?.user?.id;
+        setSenderUserId(uid || undefined);
+      } catch {
+        if (mounted) setSenderUserId(undefined);
+      }
+    };
+
+    void run();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -104,6 +125,7 @@ export default function ContactPage() {
         message: cleanMessage,
         sender_name: senderName.trim() || undefined,
         sender_session_id: senderSessionId,
+        sender_user_id: senderUserId,
         channel: 'web',
       });
 
