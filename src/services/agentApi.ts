@@ -82,14 +82,37 @@ export type ContactResolveResponse = {
 
 export const fetchPublicContactLink = async (listingId: string): Promise<PublicContactLinkResponse> => {
   const encodedId = encodeURIComponent(listingId);
-  const response = await fetchWithPathFallback([
+  const candidatePaths = [
     `/api/v3/contact/public-link/${encodedId}`,
     `/contact/public-link/${encodedId}`,
-  ]);
-  if (!response.ok) {
-    throw new Error(`Contact link alınamadı: ${response.status}`);
+  ];
+
+  const response = await fetchWithPathFallback(candidatePaths);
+  if (response.ok) {
+    return (await response.json()) as PublicContactLinkResponse;
   }
-  return (await response.json()) as PublicContactLinkResponse;
+
+  // Fallback: if agent API cannot resolve listing (404), try Supabase Edge Function
+  // in the same project where the listing is stored.
+  if (response.status === 404) {
+    const { data, error } = await supabase.functions.invoke('contact-public-link', {
+      body: { listing_id: listingId },
+    });
+
+    if (!error && data?.success && data?.data?.token) {
+      return data as PublicContactLinkResponse;
+    }
+  }
+
+  let detail = '';
+  try {
+    const payload = await response.clone().json() as { detail?: string; error?: string; message?: string };
+    detail = payload?.detail || payload?.error || payload?.message || '';
+  } catch {
+    // ignore parse errors
+  }
+  const suffix = detail ? ` (${detail})` : '';
+  throw new Error(`Contact link alınamadı: ${response.status}${suffix}`);
 };
 
 export const resolveContactToken = async (token: string): Promise<ContactResolveResponse> => {
