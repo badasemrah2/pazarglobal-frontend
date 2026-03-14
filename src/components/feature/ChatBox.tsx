@@ -104,16 +104,17 @@ const parseListings = (content: string): { cleanContent: string; listings: any[]
 const toClickableMarkdown = (content: string): string => {
   if (!content) return '';
 
-  // Convert plain http/https URLs to markdown links so ReactMarkdown renders them clickable.
+  // Convert only plain http/https URLs to markdown links so ReactMarkdown renders them clickable.
+  // IMPORTANT: Do not touch URLs that are already inside markdown links/images like [text](url) or ![alt](url).
   // Example: "Mesaj Gönder: https://..." -> "Mesaj Gönder: [https://...](https://...)"
-  return content.replace(/(https?:\/\/[^\s<>()\[\]]+)/g, (rawUrl: string) => {
+  return content.replace(/(^|[\s>])(https?:\/\/[^\s<>()\[\]]+)/g, (fullMatch: string, prefix: string, rawUrl: string) => {
     const trailingMatch = rawUrl.match(/[.,!?;:]+$/);
     const trailing = trailingMatch ? trailingMatch[0] : '';
     const url = trailing ? rawUrl.slice(0, -trailing.length) : rawUrl;
 
-    if (!url) return rawUrl;
+    if (!url) return fullMatch;
 
-    return `[${url}](${url})${trailing}`;
+    return `${prefix}[${url}](${url})${trailing}`;
   });
 };
 
