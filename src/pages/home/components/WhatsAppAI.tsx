@@ -1,5 +1,10 @@
 import { motion } from 'framer-motion';
 
+const TWILIO_WHATSAPP_NUMBER = '14155238886';
+const TWILIO_WHATSAPP_E164 = '+14155238886';
+const TWILIO_SANDBOX_JOIN = 'wrong-nice';
+const WHATSAPP_QUICK_LINK = `https://wa.me/${TWILIO_WHATSAPP_NUMBER}?text=${encodeURIComponent(`join ${TWILIO_SANDBOX_JOIN}`)}`;
+
 const whatsappFeatures = [
   {
     icon: 'ri-advertisement-line',
@@ -115,15 +120,52 @@ export default function WhatsAppAI() {
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button className="px-8 py-4 bg-white text-green-600 font-semibold rounded-full hover:shadow-2xl hover:scale-105 transition-all flex items-center space-x-2 whitespace-nowrap cursor-pointer">
+              <a
+                href={WHATSAPP_QUICK_LINK}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-8 py-4 bg-white text-green-600 font-semibold rounded-full hover:shadow-2xl hover:scale-105 transition-all flex items-center space-x-2 whitespace-nowrap cursor-pointer"
+              >
                 <i className="ri-whatsapp-line text-2xl" />
                 <span>WhatsApp'a Bağlan</span>
-              </button>
+              </a>
               
-              <button className="px-8 py-4 bg-white/20 backdrop-blur-sm text-white font-semibold rounded-full hover:bg-white/30 transition-all flex items-center space-x-2 whitespace-nowrap cursor-pointer border border-white/30">
+              <a
+                href="#twilio-sandbox-kullanim"
+                className="px-8 py-4 bg-white/20 backdrop-blur-sm text-white font-semibold rounded-full hover:bg-white/30 transition-all flex items-center space-x-2 whitespace-nowrap cursor-pointer border border-white/30"
+              >
                 <i className="ri-question-line text-xl" />
                 <span>Nasıl Çalışır?</span>
-              </button>
+              </a>
+            </div>
+
+            <div id="twilio-sandbox-kullanim" className="mt-8 text-left bg-black/20 border border-white/20 rounded-2xl p-5 md:p-6">
+              <p className="text-sm md:text-base font-semibold text-white mb-3">
+                Twilio Sandbox Kullanim Talimati
+              </p>
+              <p className="text-sm text-white/90 leading-relaxed mb-4">
+                Twilio Sandbox: Numaraniz sandbox'a bagli degilse once <span className="font-semibold">join {TWILIO_SANDBOX_JOIN}</span> gondererek baglanmalisiniz.
+                Uyelik 72 saat surer.
+              </p>
+
+              <div className="space-y-2 text-sm font-mono text-white/95 bg-black/25 rounded-xl p-4">
+                <p>20:04</p>
+                <p>{`join ${TWILIO_SANDBOX_JOIN}`}</p>
+                <p>20:04 ✓✓</p>
+                <p>{`Twilio Sandbox: Hazirsiniz! Sandbox artik whatsapp:${TWILIO_WHATSAPP_E164} ile mesaj gonderip alabilir. Cikmak icin stop yazin.`}</p>
+                <p>20:04</p>
+                <p>Selam</p>
+                <p>20:04 ✓✓</p>
+                <p>
+                  Selam! Pazarglobal'e hos geldiniz!<br />
+                  Urun satmak istiyorsaniz urununuzu yazin veya fotograf gonderin.<br />
+                  Urun aramak istiyorsaniz ne aradiginizi yazin.
+                </p>
+              </div>
+
+              <p className="text-xs text-white/80 mt-4">
+                Hizli baslangic: WhatsApp'a Baglan butonuna bastiginizda dogrudan Twilio numarasina yonlendirilirsiniz.
+              </p>
             </div>
 
             <p className="text-sm text-white/80 mt-6">
