@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Private/account areas
+Disallow: /auth/
+Disallow: /profile/
+Disallow: /contact/
+
+Sitemap: https://pazarglobal.com/sitemap.xml
