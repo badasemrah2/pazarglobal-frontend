@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { Listing } from '../../../types/listing';
 import { toCanonicalCondition } from '../../../lib/condition';
 import { getPremiumBadgeUI } from '../../../lib/premiumBadge';
@@ -158,7 +158,9 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
                     </div>
                   ) : null}
                   <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-primary-600 transition-colors">
-                    {listing.title}
+                    <Link to={`/listing/${listing.id}`} className="hover:underline" onClick={(event) => event.stopPropagation()}>
+                      {listing.title}
+                    </Link>
                   </h3>
                   <p className="text-sm text-gray-600 line-clamp-2">{listing.description}</p>
                 </div>
@@ -246,7 +248,9 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
           </div>
         ) : null}
         <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-primary-600 transition-colors">
-          {listing.title}
+          <Link to={`/listing/${listing.id}`} className="hover:underline" onClick={(event) => event.stopPropagation()}>
+            {listing.title}
+          </Link>
         </h3>
         
         <p className="text-sm text-gray-600 mb-4 line-clamp-2">{listing.description}</p>

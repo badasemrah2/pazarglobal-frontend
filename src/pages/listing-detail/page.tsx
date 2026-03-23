@@ -227,6 +227,25 @@ interface ListingDetail {
   name_visibility: 'public' | 'hidden';
 }
 
+const upsertMetaTag = (selector: string, attrs: Record<string, string>) => {
+  let element = document.head.querySelector(selector) as HTMLMetaElement | null;
+  if (!element) {
+    element = document.createElement('meta');
+    document.head.appendChild(element);
+  }
+  Object.entries(attrs).forEach(([k, v]) => element?.setAttribute(k, v));
+};
+
+const upsertCanonical = (href: string) => {
+  let canonical = document.head.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+  if (!canonical) {
+    canonical = document.createElement('link');
+    canonical.setAttribute('rel', 'canonical');
+    document.head.appendChild(canonical);
+  }
+  canonical.setAttribute('href', href);
+};
+
 export default function ListingDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -352,6 +371,74 @@ export default function ListingDetailPage() {
       void fetchListing();
     }
   }, [id, fetchListing]);
+
+  useEffect(() => {
+    const origin = window.location.origin || 'https://pazarglobal.com';
+    const canonical = `${origin}/listing/${id || ''}`;
+
+    if (!loading && !listing) {
+      document.title = 'İlan Bulunamadı - PazarGlobal';
+      upsertMetaTag('meta[name="robots"]', { name: 'robots', content: 'noindex,follow' });
+      upsertCanonical(canonical);
+      const oldScript = document.getElementById('pg-listing-jsonld');
+      if (oldScript) oldScript.remove();
+      return;
+    }
+
+    if (!listing) return;
+
+    const safeTitle = `${listing.title} | ${Number(listing.price || 0).toLocaleString('tr-TR')} TL - PazarGlobal`;
+    const descriptionRaw = (listing.description || '').trim();
+    const safeDescription = (descriptionRaw || `${listing.category} kategorisinde ilan detayı.`).slice(0, 160);
+    const primaryImage = listing.images?.[0] || `${origin}/logo.png`;
+
+    document.title = safeTitle;
+    upsertMetaTag('meta[name="description"]', { name: 'description', content: safeDescription });
+    upsertMetaTag('meta[name="robots"]', { name: 'robots', content: 'index,follow,max-image-preview:large' });
+    upsertMetaTag('meta[property="og:title"]', { property: 'og:title', content: safeTitle });
+    upsertMetaTag('meta[property="og:description"]', { property: 'og:description', content: safeDescription });
+    upsertMetaTag('meta[property="og:url"]', { property: 'og:url', content: canonical });
+    upsertMetaTag('meta[property="og:type"]', { property: 'og:type', content: 'product' });
+    upsertMetaTag('meta[property="og:image"]', { property: 'og:image', content: primaryImage });
+    upsertMetaTag('meta[name="twitter:title"]', { name: 'twitter:title', content: safeTitle });
+    upsertMetaTag('meta[name="twitter:description"]', { name: 'twitter:description', content: safeDescription });
+    upsertMetaTag('meta[name="twitter:image"]', { name: 'twitter:image', content: primaryImage });
+    upsertCanonical(canonical);
+
+    const schema = {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: listing.title,
+      description: descriptionRaw,
+      image: listing.images,
+      category: listing.category,
+      brand: {
+        '@type': 'Brand',
+        name: 'PazarGlobal',
+      },
+      offers: {
+        '@type': 'Offer',
+        priceCurrency: 'TRY',
+        price: Number(listing.price || 0),
+        availability: 'https://schema.org/InStock',
+        url: canonical,
+      },
+    };
+
+    let script = document.getElementById('pg-listing-jsonld') as HTMLScriptElement | null;
+    if (!script) {
+      script = document.createElement('script');
+      script.id = 'pg-listing-jsonld';
+      script.type = 'application/ld+json';
+      document.head.appendChild(script);
+    }
+    script.textContent = JSON.stringify(schema);
+
+    return () => {
+      const existing = document.getElementById('pg-listing-jsonld');
+      if (existing) existing.remove();
+    };
+  }, [id, listing, loading]);
 
   const formatDate = (date: string) => {
     const itemDate = new Date(date);
