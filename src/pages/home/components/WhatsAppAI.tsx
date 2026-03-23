@@ -144,27 +144,29 @@ export default function WhatsAppAI() {
                 Twilio Sandbox Kullanim Talimati
               </p>
               <p className="text-sm text-white/90 leading-relaxed mb-4">
-                Twilio Sandbox: Numaraniz sandbox'a bagli degilse once <span className="font-semibold">join {TWILIO_SANDBOX_JOIN}</span> gondererek baglanmalisiniz.
-                Uyelik 72 saat surer.
+                Asagidaki akista oldugu gibi once sandbox baglantisi yapilir, sonra normal sekilde mesajlasmaya devam edilir.
+                Sandbox uyeligi 72 saat surer.
               </p>
 
               <div className="space-y-2 text-sm font-mono text-white/95 bg-black/25 rounded-xl p-4">
-                <p>20:04</p>
-                <p>{`join ${TWILIO_SANDBOX_JOIN}`}</p>
-                <p>20:04 ✓✓</p>
-                <p>{`Twilio Sandbox: Hazirsiniz! Sandbox artik whatsapp:${TWILIO_WHATSAPP_E164} ile mesaj gonderip alabilir. Cikmak icin stop yazin.`}</p>
-                <p>20:04</p>
-                <p>Selam</p>
-                <p>20:04 ✓✓</p>
-                <p>
-                  Selam! Pazarglobal'e hos geldiniz!<br />
-                  Urun satmak istiyorsaniz urununuzu yazin veya fotograf gonderin.<br />
-                  Urun aramak istiyorsaniz ne aradiginizi yazin.
-                </p>
+                <p>{`Twilio WhatsApp: Twilio Sandbox: ⚠️ Your number whatsapp:+905412879705 is not connected to a Sandbox.`}</p>
+                <p>{`Twilio WhatsApp: You need to connect it first by sending join <sandbox name>. Sandbox membership lasts for 72 hours.`}</p>
+                <p>{`Kullanici: join ${TWILIO_SANDBOX_JOIN}`}</p>
+                <p>{`Twilio WhatsApp: Twilio Sandbox: ✅ You are all set! The sandbox can now send/receive messages from whatsapp:${TWILIO_WHATSAPP_E164}. Reply stop to leave the sandbox any time.`}</p>
+                <p>Kullanici: Selam</p>
+                <p>Twilio WhatsApp: ⏰ Oturumunuz sona erdi (10 dakika).</p>
+                <p>Twilio WhatsApp: Guvenlik icin PIN kodunuzu tekrar girin:</p>
+                <p>Kullanici: 1234 (profilim WhatsApp ayarlari kismindan olusturunuz)</p>
+                <p>Twilio WhatsApp: ✅ Giris basarili!</p>
+                <p>Twilio WhatsApp: 🕐 10 dakika boyunca islem yapabilirsiniz.</p>
+                <p>Twilio WhatsApp: Ne yapmak istersiniz?</p>
+                <p>Kullanici: Selam</p>
+                <p>{`Twilio WhatsApp: Merhaba! PazarGlobal'a hos geldiniz. Size nasil yardimci olabilirim? Eger bir ilan vermek istiyorsaniz, lutfen satmak istediginiz urun hakkinda bilgi verin.`}</p>
+                <p>Kullanici: Volvo xc 40 varmi</p>
               </div>
 
               <p className="text-xs text-white/80 mt-4">
-                Hizli baslangic: WhatsApp'a Baglan butonuna bastiginizda dogrudan Twilio numarasina yonlendirilirsiniz.
+                Hizli baslangic: WhatsApp'a Baglan butonuna bastiginizda sohbet otomatik olarak Twilio numarasi ile acilir.
               </p>
             </div>
 
