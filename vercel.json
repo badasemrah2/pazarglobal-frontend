@@ -3,6 +3,7 @@
   "outputDirectory": "out",
   "framework": "vite",
   "rewrites": [
+    { "source": "/sitemap-live.xml", "destination": "https://pazarglobal-agent-production.up.railway.app/seo/sitemap-live.xml" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
