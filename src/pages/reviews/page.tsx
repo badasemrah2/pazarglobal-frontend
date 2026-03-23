@@ -192,6 +192,30 @@ export default function ReviewsPage() {
               <span>emrahbadas@gmail.com</span>
             </a>
           </div>
+
+          <div className="mt-4 pt-4 border-t border-amber-100">
+            <p className="text-sm font-semibold text-gray-700 mb-2">Konu seçimi:</p>
+            <div className="flex flex-wrap gap-2">
+              <a
+                href="mailto:emrahbadas@gmail.com?subject=PazarGlobal%20Hata%20Bildirimi"
+                className="px-3 py-1.5 rounded-full bg-red-50 text-red-700 text-xs font-medium hover:bg-red-100 transition-colors"
+              >
+                Hata Bildirimi
+              </a>
+              <a
+                href="mailto:emrahbadas@gmail.com?subject=PazarGlobal%20Ozellik%20Onerisi"
+                className="px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100 transition-colors"
+              >
+                Öneri
+              </a>
+              <a
+                href="mailto:emrahbadas@gmail.com?subject=PazarGlobal%20Is%20Birligi"
+                className="px-3 py-1.5 rounded-full bg-purple-50 text-purple-700 text-xs font-medium hover:bg-purple-100 transition-colors"
+              >
+                İş Birliği
+              </a>
+            </div>
+          </div>
         </motion.div>
       </div>
 
@@ -378,6 +402,27 @@ export default function ReviewsPage() {
               <i className="ri-mail-line text-lg" />
               <span>Mail Gönder: emrahbadas@gmail.com</span>
             </a>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <a
+                href="mailto:emrahbadas@gmail.com?subject=PazarGlobal%20Hata%20Bildirimi"
+                className="px-3 py-1.5 rounded-full bg-white/20 text-white text-xs font-medium hover:bg-white/30 transition-colors"
+              >
+                Hata Bildirimi
+              </a>
+              <a
+                href="mailto:emrahbadas@gmail.com?subject=PazarGlobal%20Ozellik%20Onerisi"
+                className="px-3 py-1.5 rounded-full bg-white/20 text-white text-xs font-medium hover:bg-white/30 transition-colors"
+              >
+                Öneri
+              </a>
+              <a
+                href="mailto:emrahbadas@gmail.com?subject=PazarGlobal%20Is%20Birligi"
+                className="px-3 py-1.5 rounded-full bg-white/20 text-white text-xs font-medium hover:bg-white/30 transition-colors"
+              >
+                İş Birliği
+              </a>
+            </div>
           </div>
         </motion.div>
       </div>
