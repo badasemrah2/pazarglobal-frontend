@@ -167,6 +167,34 @@ export default function ReviewsPage() {
         </div>
       </div>
 
+      {/* Feedback Box - Top */}
+      <div className="max-w-7xl mx-auto px-6 -mt-10 relative z-10">
+        <motion.div
+          className="rounded-2xl border border-amber-200 bg-white/95 backdrop-blur-sm shadow-xl p-6 md:p-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
+                Sitenin Gelişimi İçin Görüşlerinizi Bekliyoruz
+              </h2>
+              <p className="text-gray-600">
+                Yorum, öneri ve geri bildirimlerinizi bize e-posta ile iletebilirsiniz.
+              </p>
+            </div>
+            <a
+              href="mailto:emrahbadas@gmail.com?subject=PazarGlobal%20Gorus%20ve%20Yorum"
+              className="inline-flex items-center justify-center space-x-2 px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold hover:shadow-lg transition-all whitespace-nowrap"
+            >
+              <i className="ri-mail-send-line text-lg" />
+              <span>emrahbadas@gmail.com</span>
+            </a>
+          </div>
+        </motion.div>
+      </div>
+
       <div className="max-w-7xl mx-auto px-6 py-16">
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Left Sidebar - Stats */}
@@ -322,6 +350,36 @@ export default function ReviewsPage() {
             ))}
           </div>
         </div>
+
+        {/* Feedback CTA - Bottom */}
+        <motion.div
+          className="mt-14 rounded-3xl bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500 p-8 md:p-10 text-white shadow-2xl"
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.7 }}
+        >
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center space-x-2 bg-white/20 rounded-full px-4 py-2 mb-4">
+              <i className="ri-feedback-line" />
+              <span className="text-sm font-medium">Geri Bildirim</span>
+            </div>
+            <h3 className="text-2xl md:text-3xl font-bold mb-3">
+              PazarGlobal Hakkındaki Görüşünüzü Paylaşın
+            </h3>
+            <p className="text-white/90 mb-6 leading-relaxed">
+              Platform deneyimi, yeni özellik önerileri veya geliştirme fikirlerinizi bizimle paylaşın.
+              Tüm geri bildirimleri düzenli olarak inceliyoruz.
+            </p>
+            <a
+              href="mailto:emrahbadas@gmail.com?subject=PazarGlobal%20Geri%20Bildirim"
+              className="inline-flex items-center space-x-2 px-6 py-3 rounded-xl bg-white text-orange-600 font-bold hover:scale-[1.02] transition-transform"
+            >
+              <i className="ri-mail-line text-lg" />
+              <span>Mail Gönder: emrahbadas@gmail.com</span>
+            </a>
+          </div>
+        </motion.div>
       </div>
     </div>
   );
