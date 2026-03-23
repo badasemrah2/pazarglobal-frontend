@@ -44,10 +44,11 @@
   "name": "react",
   "private": true,
   "scripts": {
-    "build": "vite build",
+    "build": "npm run sitemap && vite build",
     "dev": "vite",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
+    "sitemap": "node ./scripts/generate-sitemap.mjs",
     "type-check": "tsc --noEmit --project tsconfig.app.json"
   },
   "type": "module",
