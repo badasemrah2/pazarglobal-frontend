@@ -4,6 +4,16 @@
   "framework": "vite",
   "redirects": [
     {
+      "source": "/listing",
+      "destination": "/listings",
+      "permanent": true
+    },
+    {
+      "source": "/listing/",
+      "destination": "/listings",
+      "permanent": true
+    },
+    {
       "source": "/home",
       "destination": "/",
       "permanent": true

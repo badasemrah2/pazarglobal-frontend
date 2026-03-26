@@ -35,6 +35,14 @@ const routes: RouteObject[] = [
     element: <ListingsPage />,
   },
   {
+    path: '/listing',
+    element: <Navigate to="/listings" replace />,
+  },
+  {
+    path: '/listing/',
+    element: <Navigate to="/listings" replace />,
+  },
+  {
     path: '/listing/:id',
     element: <ListingDetailPage />,
   },
