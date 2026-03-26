@@ -1,5 +1,6 @@
 import { lazy } from 'react';
 import type { RouteObject } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 
 const HomePage = lazy(() => import('../pages/home/page'));
 const ListingsPage = lazy(() => import('../pages/listings/page'));
@@ -22,11 +23,23 @@ const routes: RouteObject[] = [
     element: <HomePage />,
   },
   {
+    path: '/home',
+    element: <Navigate to="/" replace />,
+  },
+  {
+    path: '/home/',
+    element: <Navigate to="/" replace />,
+  },
+  {
     path: '/listings',
     element: <ListingsPage />,
   },
   {
     path: '/listing/:id',
+    element: <ListingDetailPage />,
+  },
+  {
+    path: '/listing/:id/:slug',
     element: <ListingDetailPage />,
   },
   {

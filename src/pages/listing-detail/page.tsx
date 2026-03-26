@@ -8,6 +8,7 @@ import ChatBox from '../../components/feature/ChatBox';
 import { toCanonicalCondition } from '../../lib/condition';
 import { supabase } from '../../lib/supabase';
 import { getPremiumBadgeUI } from '../../lib/premiumBadge';
+import { buildCanonicalUrl, buildListingPath, PREFERRED_ORIGIN } from '../../lib/seo';
 
 // ── Report Modal ─────────────────────────────────────────────────────────────
 const REPORT_REASONS = [
@@ -248,7 +249,7 @@ const upsertCanonical = (href: string) => {
 
 export default function ListingDetailPage() {
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string; slug?: string }>();
   const [showReport, setShowReport] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [listing, setListing] = useState<ListingDetail | null>(null);
@@ -373,8 +374,10 @@ export default function ListingDetailPage() {
   }, [id, fetchListing]);
 
   useEffect(() => {
-    const origin = window.location.origin || 'https://pazarglobal.com';
-    const canonical = `${origin}/listing/${id || ''}`;
+    const listingPath = listing
+      ? buildListingPath(id || '', listing.title)
+      : buildListingPath(id || '');
+    const canonical = buildCanonicalUrl(listingPath);
 
     if (!loading && !listing) {
       document.title = 'İlan Bulunamadı - PazarGlobal';
@@ -390,7 +393,7 @@ export default function ListingDetailPage() {
     const safeTitle = `${listing.title} | ${Number(listing.price || 0).toLocaleString('tr-TR')} TL - PazarGlobal`;
     const descriptionRaw = (listing.description || '').trim();
     const safeDescription = (descriptionRaw || `${listing.category} kategorisinde ilan detayı.`).slice(0, 160);
-    const primaryImage = listing.images?.[0] || `${origin}/logo.png`;
+    const primaryImage = listing.images?.[0] || `${PREFERRED_ORIGIN}/logo.png`;
 
     document.title = safeTitle;
     upsertMetaTag('meta[name="description"]', { name: 'description', content: safeDescription });

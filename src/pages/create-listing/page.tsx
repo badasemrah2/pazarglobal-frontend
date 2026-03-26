@@ -10,6 +10,7 @@ import { toCanonicalCondition } from '../../lib/condition';
 import { useAuthStore } from '../../stores/authStore';
 import { fetchCategoryOptions } from '../../services/agentApi';
 import { FALLBACK_CATEGORY_OPTIONS } from '../../constants/categories';
+import { buildListingPath } from '../../lib/seo';
 
 type FormData = {
   title: string;
@@ -772,7 +773,7 @@ export default function CreateListingPage() {
       }
 
       alert('İlan başarıyla oluşturuldu! 🎉');
-      navigate(`/listing/${fnData.listing.id}`);
+      navigate(buildListingPath(fnData.listing.id, formData.title));
     } catch (error: any) {
       console.error('Error creating listing:', error);
       

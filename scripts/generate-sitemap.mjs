@@ -35,9 +35,6 @@ async function loadEnvFile() {
 const STATIC_PATHS = [
   '/',
   '/listings',
-  '/create-listing',
-  '/about',
-  '/reviews',
 ];
 
 function toIsoDate(value) {
@@ -69,6 +66,16 @@ function buildUrlNode({ loc, lastmod, changefreq, priority }) {
   return lines.join('\n');
 }
 
+async function readExistingListingNodes() {
+  try {
+    const xml = await fs.readFile(sitemapPath, 'utf8');
+    const blocks = xml.match(/<url>[\s\S]*?<\/url>/g) || [];
+    return blocks.filter((block) => /<loc>[^<]*\/listing\//.test(block));
+  } catch {
+    return [];
+  }
+}
+
 async function fetchActiveListings({ SUPABASE_URL, SUPABASE_KEY }) {
   if (!SUPABASE_URL || !SUPABASE_KEY) {
     console.warn('[sitemap] Supabase env eksik, sadece statik sayfalar yazılacak.');
@@ -77,7 +84,7 @@ async function fetchActiveListings({ SUPABASE_URL, SUPABASE_KEY }) {
 
   const endpoint = `${SUPABASE_URL}/rest/v1/listings`;
   const query = new URLSearchParams({
-    select: 'id,created_at,updated_at,status,expires_at',
+    select: 'id,title,created_at,updated_at,status,expires_at',
     status: 'eq.active',
     order: 'created_at.desc',
     limit: '5000',
@@ -110,7 +117,7 @@ async function fetchActiveListings({ SUPABASE_URL, SUPABASE_KEY }) {
 async function generateSitemap() {
   await loadEnvFile();
 
-  const SITE_URL = (process.env.SITE_URL || 'https://pazarglobal.com').replace(/\/$/, '');
+  const SITE_URL = (process.env.SITE_URL || 'https://www.pazarglobal.com').replace(/\/$/, '');
   const SUPABASE_URL = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
   const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '';
 
@@ -123,21 +130,24 @@ async function generateSitemap() {
   );
 
   let listingRows = [];
+  let listingNodes = [];
+  let usedExistingListingFallback = false;
   try {
     listingRows = await fetchActiveListings({ SUPABASE_URL, SUPABASE_KEY });
+    listingNodes = listingRows.map((row) =>
+      buildUrlNode({
+        loc: `${SITE_URL}${buildListingPath(row.id, row.title)}`,
+        lastmod: toIsoDate(row.updated_at) || toIsoDate(row.created_at) || undefined,
+        changefreq: 'daily',
+        priority: '0.8',
+      }),
+    );
   } catch (error) {
     console.error(String(error));
-    // Fail-soft: still write static sitemap so build can continue.
+    // Fail-soft: preserve existing listing nodes so build does not remove listing URLs.
+    listingNodes = await readExistingListingNodes();
+    usedExistingListingFallback = listingNodes.length > 0;
   }
-
-  const listingNodes = listingRows.map((row) =>
-    buildUrlNode({
-      loc: `${SITE_URL}/listing/${row.id}`,
-      lastmod: toIsoDate(row.updated_at) || toIsoDate(row.created_at) || undefined,
-      changefreq: 'daily',
-      priority: '0.8',
-    }),
-  );
 
   const xml = [
     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -153,6 +163,33 @@ async function generateSitemap() {
 
   console.log(`[sitemap] Yazıldı: ${sitemapPath}`);
   console.log(`[sitemap] Statik URL: ${STATIC_PATHS.length}, İlan URL: ${listingNodes.length}`);
+  if (usedExistingListingFallback) {
+    console.log('[sitemap] Supabase fetch basarisiz, mevcut listing URL bloklari korundu.');
+  }
+}
+
+function slugify(text) {
+  return String(text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ı/g, 'i')
+    .replace(/ç/g, 'c')
+    .replace(/ğ/g, 'g')
+    .replace(/ö/g, 'o')
+    .replace(/ş/g, 's')
+    .replace(/ü/g, 'u')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 90);
+}
+
+function buildListingPath(id, title) {
+  const safeId = encodeURIComponent(id || '');
+  const slug = slugify(title || '');
+  return slug ? `/listing/${safeId}/${slug}` : `/listing/${safeId}`;
 }
 
 generateSitemap().catch((error) => {

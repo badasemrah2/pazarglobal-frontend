@@ -5,5 +5,5 @@ Allow: /
 Disallow: /auth/
 Disallow: /profile/
 
-Sitemap: https://pazarglobal.com/sitemap.xml
-Sitemap: https://pazarglobal.com/sitemap-live.xml
+Sitemap: https://www.pazarglobal.com/sitemap.xml
+Sitemap: https://www.pazarglobal.com/sitemap-live.xml

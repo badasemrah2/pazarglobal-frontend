@@ -6,6 +6,7 @@ import { supabase, listingHelpers } from '../../../lib/supabase';
 import { FALLBACK_CATEGORY_OPTIONS } from '../../../constants/categories';
 import { toCanonicalCondition } from '../../../lib/condition';
 import type { DBListing } from '../../../services/supabase';
+import { buildListingPath } from '../../../lib/seo';
 
 const CONDITIONS: Array<ReturnType<typeof toCanonicalCondition>> = ['Sıfır', '2. El', 'Az Kullanılmış'];
 
@@ -479,7 +480,7 @@ export default function ManageListingsPage() {
                           {(listing.price ?? 0).toLocaleString('tr-TR')} ₺
                         </div>
                         <button
-                          onClick={() => navigate(`/listing/${listing.id}`)}
+                          onClick={() => navigate(buildListingPath(listing.id, listing.title))}
                           className="px-4 py-2 rounded-full border border-gray-200 text-gray-600 hover:border-purple-500 hover:text-purple-600 transition-all cursor-pointer text-sm"
                         >
                           Detay
@@ -521,7 +522,7 @@ export default function ManageListingsPage() {
                         </div>
                         <div className="flex flex-wrap gap-3">
                           <button
-                            onClick={() => navigate(`/listing/${listing.id}`)}
+                            onClick={() => navigate(buildListingPath(listing.id, listing.title))}
                             className="px-4 py-2 rounded-full border border-gray-200 text-gray-600 hover:border-gray-400 transition-all cursor-pointer"
                           >
                             İlanı Gör

@@ -2,6 +2,29 @@
   "buildCommand": "npm run build",
   "outputDirectory": "out",
   "framework": "vite",
+  "redirects": [
+    {
+      "source": "/home",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/home/",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "pazarglobal.com"
+        }
+      ],
+      "destination": "https://www.pazarglobal.com/$1",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     { "source": "/sitemap-live.xml", "destination": "https://pazarglobal-agent-production.up.railway.app/seo/sitemap-live.xml" },
     { "source": "/(.*)", "destination": "/index.html" }

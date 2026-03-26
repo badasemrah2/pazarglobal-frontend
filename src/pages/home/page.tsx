@@ -5,6 +5,7 @@ import Features from './components/Features';
 import HowItWorks from './components/HowItWorks';
 import WhatsAppAI from './components/WhatsAppAI';
 import SiteAI from './components/SiteAI';
+import FeaturedListings from './components/FeaturedListings';
 import CTASection from './components/CTASection';
 import Testimonials from './components/Testimonials';
 import About from './components/About';
@@ -31,6 +32,7 @@ export default function HomePage() {
       <HowItWorks />
       <WhatsAppAI />
       <SiteAI />
+      <FeaturedListings />
       <CTASection />
       <Testimonials />
       <About />

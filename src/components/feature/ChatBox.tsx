@@ -16,6 +16,7 @@ import 'swiper/css/navigation';
 import './ChatBox.css';
 import { conditionBadgeClass, toCanonicalCondition } from '../../lib/condition';
 import { fetchPublicContactLink } from '../../services/agentApi';
+import { buildListingPath } from '../../lib/seo';
 
 type Message = {
   id: string;
@@ -965,7 +966,7 @@ export default function ChatBox() {
               </button>
               <button 
                 onClick={() => {
-                  navigate(`/listing/${detailListing.id}`);
+                  navigate(buildListingPath(detailListing.id, detailListing.title));
                   setDetailListing(null);
                   setIsOpen(false);
                 }}

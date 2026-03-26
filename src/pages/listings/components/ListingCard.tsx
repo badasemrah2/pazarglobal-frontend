@@ -5,6 +5,7 @@ import type { Listing } from '../../../types/listing';
 import { toCanonicalCondition } from '../../../lib/condition';
 import { getPremiumBadgeUI } from '../../../lib/premiumBadge';
 import { fetchPublicContactLink } from '../../../services/agentApi';
+import { buildListingPath } from '../../../lib/seo';
 
 interface ListingCardProps {
   listing: Listing;
@@ -88,6 +89,7 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
   const navigate = useNavigate();
 
   const premiumUi = getPremiumBadgeUI(listing.premiumBadge);
+  const listingPath = buildListingPath(listing.id, listing.title);
 
   const formatDate = (date: string) => {
     const now = new Date();
@@ -104,7 +106,7 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
   };
 
   const handleClick = () => {
-    navigate(`/listing/${listing.id}`);
+    navigate(listingPath);
   };
 
   const handleContactClick = async (event: MouseEvent<HTMLButtonElement>) => {
@@ -158,7 +160,7 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
                     </div>
                   ) : null}
                   <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-primary-600 transition-colors">
-                    <Link to={`/listing/${listing.id}`} className="hover:underline" onClick={(event) => event.stopPropagation()}>
+                    <Link to={listingPath} className="hover:underline" onClick={(event) => event.stopPropagation()}>
                       {listing.title}
                     </Link>
                   </h3>
@@ -248,7 +250,7 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
           </div>
         ) : null}
         <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-primary-600 transition-colors">
-          <Link to={`/listing/${listing.id}`} className="hover:underline" onClick={(event) => event.stopPropagation()}>
+          <Link to={listingPath} className="hover:underline" onClick={(event) => event.stopPropagation()}>
             {listing.title}
           </Link>
         </h3>
