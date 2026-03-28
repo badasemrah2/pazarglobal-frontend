@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
 import VoiceChat from './VoiceChat';
@@ -246,6 +246,7 @@ const uploadImageToSupabase = async (file: File, userId: string): Promise<{ stor
 
 export default function ChatBox() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, customUser } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('listing');
@@ -273,6 +274,16 @@ export default function ChatBox() {
   const conversationHistory = useRef<Array<{ role: string; content: string }>>([]);
   const pendingMediaPathsRef = useRef<string[]>([]);
   const pendingMediaPublicMapRef = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    const search = location.search || '';
+    if (!search) return;
+
+    const params = new URLSearchParams(search);
+    if (params.get('openChat') === '1') {
+      setIsOpen(true);
+    }
+  }, [location.search]);
 
   const clearPendingMedia = () => {
     pendingMediaPathsRef.current = [];

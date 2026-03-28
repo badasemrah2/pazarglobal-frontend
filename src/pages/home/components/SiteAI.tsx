@@ -40,6 +40,17 @@ const siteAIFeatures = [
 ];
 
 export default function SiteAI() {
+  const handleOpenAiChat = () => {
+    const targetPath = '/listings?openChat=1';
+
+    if (window.REACT_APP_NAVIGATE) {
+      window.REACT_APP_NAVIGATE(targetPath);
+      return;
+    }
+
+    window.location.href = targetPath;
+  };
+
   return (
     <section className="py-24 bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 relative overflow-hidden">
       {/* Background Elements */}
@@ -154,7 +165,10 @@ export default function SiteAI() {
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button className="px-8 py-4 bg-gradient-to-r from-purple-500 to-blue-500 text-white font-semibold rounded-full hover:shadow-2xl hover:scale-105 transition-all flex items-center space-x-2 whitespace-nowrap cursor-pointer">
+              <button
+                onClick={handleOpenAiChat}
+                className="px-8 py-4 bg-gradient-to-r from-purple-500 to-blue-500 text-white font-semibold rounded-full hover:shadow-2xl hover:scale-105 transition-all flex items-center space-x-2 whitespace-nowrap cursor-pointer"
+              >
                 <i className="ri-chat-3-line text-2xl" />
                 <span>AI Chat'i Aç</span>
               </button>
