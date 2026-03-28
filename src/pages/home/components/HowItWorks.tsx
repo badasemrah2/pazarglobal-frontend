@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useAuthStore } from '../../../stores/authStore';
 
 const steps = [
   {
@@ -32,6 +33,20 @@ const steps = [
 ];
 
 export default function HowItWorks() {
+  const checkAuth = useAuthStore((state) => state.checkAuth);
+
+  const handleTryNowClick = async () => {
+    const isAuthenticated = await checkAuth();
+    const targetPath = isAuthenticated ? '/create-listing' : '/auth/login';
+
+    if (window.REACT_APP_NAVIGATE) {
+      window.REACT_APP_NAVIGATE(targetPath);
+      return;
+    }
+
+    window.location.href = targetPath;
+  };
+
   return (
     <section id="how-it-works" className="py-24 bg-gradient-to-br from-gray-50 to-white relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-6">
@@ -100,7 +115,10 @@ export default function HowItWorks() {
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.8 }}
         >
-          <button className="px-10 py-4 bg-gradient-primary text-white font-semibold rounded-full hover:shadow-2xl hover:scale-105 transition-all flex items-center space-x-2 mx-auto whitespace-nowrap cursor-pointer">
+          <button
+            onClick={() => void handleTryNowClick()}
+            className="px-10 py-4 bg-gradient-primary text-white font-semibold rounded-full hover:shadow-2xl hover:scale-105 transition-all flex items-center space-x-2 mx-auto whitespace-nowrap cursor-pointer"
+          >
             <span>Hemen Dene</span>
             <i className="ri-arrow-right-line text-xl" />
           </button>
