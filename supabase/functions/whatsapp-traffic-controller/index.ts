@@ -52,6 +52,7 @@ interface IncomingRequest {
   media_type?: string;
   conversation_history?: any[];
   draft_listing_id?: string;
+  prefill_listing_data?: Record<string, unknown>;
   session_token?: string;
   user_context?: Record<string, any>;
 }
@@ -89,6 +90,7 @@ Deno.serve(async (req: Request) => {
         media_paths: requestData.media_paths,
         media_type: requestData.media_type,
         draft_listing_id: requestData.draft_listing_id,
+        prefill_listing_data: requestData.prefill_listing_data,
         session_token: requestData.session_token,
         user_context: requestData.user_context,
       };
@@ -241,6 +243,7 @@ Deno.serve(async (req: Request) => {
           media_paths: mediaUrls,
           media_type: requestData.media_type || null,
           draft_listing_id: requestData.draft_listing_id,
+          prefill_listing_data: requestData.prefill_listing_data,
           session_token: activeSession.session_token || activeSession.id || phone,
           user_context: requestData.user_context,
         };

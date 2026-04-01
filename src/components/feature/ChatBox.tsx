@@ -244,6 +244,16 @@ const uploadImageToSupabase = async (file: File, userId: string): Promise<{ stor
   };
 };
 
+
+const fileToDataUrl = async (file: File): Promise<string> => {
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Dosya okunamadı'));
+    reader.readAsDataURL(file);
+  });
+};
+
 export default function ChatBox() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -631,6 +641,12 @@ export default function ChatBox() {
       const resolvedUserId = customUser?.id || user?.id || localStorage.getItem('user_id') || getUserId();
       const uploadedItems: Array<{ path: string; publicUrl: string }> = [];
 
+      const phoneNumber = customUser?.phone || user?.phone;
+      const { userId: verifiedUserId, accessToken } = await getVerifiedWebchatUserContext(
+        resolvedUserId,
+        phoneNumber || undefined
+      );
+
       setIsTyping(true);
       try {
         for (const file of limitedFiles) {
@@ -641,7 +657,40 @@ export default function ChatBox() {
               uploadFile = await compressImage(file, 0.9);
             }
 
-            const { storagePath, publicUrl } = await uploadImageToSupabase(uploadFile, resolvedUserId);
+            if (AGENT_API_BASE) {
+              const precheckEndpoint = `${AGENT_API_BASE.replace(/\/$/, '')}/api/v3/webchat/media/precheck`;
+              const dataUrl = await fileToDataUrl(uploadFile);
+              const precheckRes = await fetch(precheckEndpoint, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({
+                  user_id: verifiedUserId,
+                  media_data_url: dataUrl,
+                }),
+              });
+
+              if (!precheckRes.ok) {
+                const errText = await precheckRes.text().catch(() => '');
+                throw new Error(`Görsel güvenlik kontrolü başarısız (${precheckRes.status}): ${errText || 'Bilinmeyen hata'}`);
+              }
+
+              const precheckJson = await precheckRes.json();
+              if (!precheckJson?.safe) {
+                const blockedMessage: Message = {
+                  id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+                  type: 'ai',
+                  content: precheckJson?.message || '🚫 Bu görsel içerik politikaları nedeniyle yüklenemedi.',
+                  timestamp: new Date(),
+                };
+                setMessages((prev) => [...prev, blockedMessage]);
+                continue;
+              }
+            }
+
+            const { storagePath, publicUrl } = await uploadImageToSupabase(uploadFile, verifiedUserId);
             uploadedItems.push({ path: storagePath, publicUrl });
 
             const uploadedMessage: Message = {
