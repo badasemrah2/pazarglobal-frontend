@@ -93,6 +93,7 @@ export default function ListingsPage() {
         // Convert Supabase data to frontend Listing type
         const convertedListings: Listing[] = data.map((item: DBListing) => ({
           id: item.id,
+          userId: item.user_id,
           title: item.title,
           description: item.description,
           price: item.price,

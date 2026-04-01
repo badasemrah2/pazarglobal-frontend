@@ -15,6 +15,7 @@ import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 import './ChatBox.css';
 import { conditionBadgeClass, toCanonicalCondition } from '../../lib/condition';
+import { getExampleListingBadgeUI, isExampleListingOwner } from '../../lib/exampleListing';
 import { fetchPublicContactLink } from '../../services/agentApi';
 import { buildListingPath } from '../../lib/seo';
 
@@ -795,6 +796,8 @@ export default function ChatBox() {
   };
 
   const renderListingCard = (listing: any) => {
+    const exampleUi = getExampleListingBadgeUI();
+    const isExampleListing = isExampleListingOwner(listing.user_id);
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const imageUrls = listing.signed_images?.map((imagePath: string) => {
       if (imagePath.startsWith('http')) {
@@ -842,6 +845,12 @@ export default function ChatBox() {
                 })()}
               </div>
             )}
+            {isExampleListing && (
+              <div className={`absolute top-2 right-2 px-2.5 py-1 ${exampleUi.solidClassName} text-[11px] font-bold rounded-full flex items-center space-x-1 shadow-lg`}>
+                <i className={exampleUi.icon} />
+                <span>{exampleUi.label}</span>
+              </div>
+            )}
             {/* Photo count */}
             {imageUrls.length > 1 && (
               <div className="listing-card-photo-count">
@@ -854,6 +863,12 @@ export default function ChatBox() {
           {/* Content */}
           <div className="flex-1 min-w-0">
             {/* Title */}
+            {isExampleListing && (
+              <div className={`mb-2 inline-flex items-center px-2.5 py-1 ${exampleUi.softClassName} text-[11px] font-semibold rounded-full`}>
+                <i className={`${exampleUi.icon} mr-1`} />
+                <span>{exampleUi.label}</span>
+              </div>
+            )}
             <h4 className="text-base font-bold text-gray-900 mb-1 line-clamp-2">
               {listing.title}
             </h4>
@@ -911,6 +926,9 @@ export default function ChatBox() {
   // Inline detail modal
   const renderListingDetailModal = () => {
     if (!detailListing) return null;
+
+    const exampleUi = getExampleListingBadgeUI();
+    const isExampleListing = isExampleListingOwner(detailListing.user_id);
 
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const imageUrls = detailListing.signed_images?.map((imagePath: string) => {
@@ -982,9 +1000,20 @@ export default function ChatBox() {
           <div className="p-6 space-y-6">
             {/* Title & Price */}
             <div>
+              {isExampleListing && (
+                <div className={`mb-3 inline-flex items-center px-3 py-1.5 ${exampleUi.softClassName} text-xs font-semibold rounded-full`}>
+                  <i className={`${exampleUi.icon} mr-1.5`} />
+                  <span>{exampleUi.label}</span>
+                </div>
+              )}
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
                 {detailListing.title}
               </h2>
+              {isExampleListing && (
+                <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+                  {exampleUi.note}
+                </p>
+              )}
               <div className="flex items-baseline space-x-2">
                 <span className="text-4xl font-extrabold text-purple-600">
                   {detailListing.price?.toLocaleString('tr-TR')} ₺

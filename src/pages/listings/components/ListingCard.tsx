@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import type { Listing } from '../../../types/listing';
 import { toCanonicalCondition } from '../../../lib/condition';
 import { getPremiumBadgeUI } from '../../../lib/premiumBadge';
+import { getExampleListingBadgeUI, isExampleListingOwner } from '../../../lib/exampleListing';
 import { fetchPublicContactLink } from '../../../services/agentApi';
 import { buildListingPath } from '../../../lib/seo';
 
@@ -89,6 +90,8 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
   const navigate = useNavigate();
 
   const premiumUi = getPremiumBadgeUI(listing.premiumBadge);
+  const exampleUi = getExampleListingBadgeUI();
+  const isExampleListing = isExampleListingOwner(listing.userId);
   const listingPath = buildListingPath(listing.id, listing.title);
 
   const formatDate = (date: string) => {
@@ -147,6 +150,12 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
                 <span>{premiumUi.label}</span>
               </div>
             )}
+            {isExampleListing && (
+              <div className={`absolute top-3 right-3 px-3 py-1 ${exampleUi.solidClassName} text-xs font-bold rounded-full flex items-center space-x-1 shadow-lg`}>
+                <i className={exampleUi.icon} />
+                <span>{exampleUi.label}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 p-6 flex flex-col justify-between">
@@ -157,6 +166,12 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
                     <div className={`mb-2 inline-flex items-center space-x-1 px-3 py-1 ${premiumUi.className} text-white text-xs font-bold rounded-full`}>
                       <i className={premiumUi.icon} />
                       <span>{premiumUi.label}</span>
+                    </div>
+                  ) : null}
+                  {isExampleListing ? (
+                    <div className={`mb-2 ml-2 inline-flex items-center space-x-1 px-3 py-1 ${exampleUi.softClassName} text-xs font-semibold rounded-full`}>
+                      <i className={exampleUi.icon} />
+                      <span>{exampleUi.label}</span>
                     </div>
                   ) : null}
                   <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-primary-600 transition-colors">
@@ -237,6 +252,12 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
             <span>{premiumUi.label}</span>
           </div>
         )}
+        {isExampleListing && (
+          <div className={`absolute top-3 left-3 px-3 py-1 ${exampleUi.solidClassName} text-xs font-bold rounded-full flex items-center space-x-1 shadow-lg`}>
+            <i className={exampleUi.icon} />
+            <span>{exampleUi.label}</span>
+          </div>
+        )}
         <div className="absolute bottom-3 left-3 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-medium text-gray-700">
           {listing.category}
         </div>
@@ -247,6 +268,12 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
           <div className={`mb-2 inline-flex items-center space-x-1 px-3 py-1 ${premiumUi.className} text-white text-xs font-bold rounded-full`}>
             <i className={premiumUi.icon} />
             <span>{premiumUi.label}</span>
+          </div>
+        ) : null}
+        {isExampleListing ? (
+          <div className={`mb-2 ml-2 inline-flex items-center space-x-1 px-3 py-1 ${exampleUi.softClassName} text-xs font-semibold rounded-full`}>
+            <i className={exampleUi.icon} />
+            <span>{exampleUi.label}</span>
           </div>
         ) : null}
         <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-primary-600 transition-colors">

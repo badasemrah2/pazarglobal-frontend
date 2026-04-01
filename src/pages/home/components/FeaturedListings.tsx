@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { fetchListings, type DBListing } from '../../../services/supabase';
+import { getExampleListingBadgeUI, isExampleListingOwner } from '../../../lib/exampleListing';
 import { supabase } from '../../../lib/supabase';
 import { buildListingPath } from '../../../lib/seo';
 
 type FeaturedItem = {
   id: string;
+  userId: string;
   title: string;
   price: number;
   category: string;
@@ -48,6 +50,7 @@ const resolveImageUrl = (entry?: unknown) => {
 export default function FeaturedListings() {
   const [items, setItems] = useState<FeaturedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const exampleUi = getExampleListingBadgeUI();
 
   useEffect(() => {
     const run = async () => {
@@ -58,6 +61,7 @@ export default function FeaturedListings() {
           .slice(0, 6)
           .map((row: DBListing) => ({
             id: row.id,
+            userId: row.user_id,
             title: row.title,
             price: row.price,
             category: row.category,
@@ -114,7 +118,15 @@ export default function FeaturedListings() {
                 className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-shadow"
               >
                 <Link to={item.path} className="block" aria-label={item.title}>
-                  <img src={item.image} alt={item.title} className="w-full h-44 object-cover" loading="lazy" />
+                  <div className="relative">
+                    <img src={item.image} alt={item.title} className="w-full h-44 object-cover" loading="lazy" />
+                    {isExampleListingOwner(item.userId) ? (
+                      <div className={`absolute top-3 left-3 px-3 py-1 ${exampleUi.solidClassName} text-xs font-bold rounded-full flex items-center space-x-1 shadow-lg`}>
+                        <i className={exampleUi.icon} />
+                        <span>{exampleUi.label}</span>
+                      </div>
+                    ) : null}
+                  </div>
                   <div className="p-4">
                     <h3 className="font-semibold text-gray-900 line-clamp-2 min-h-[48px]">{item.title}</h3>
                     <p className="text-xs text-gray-500 mt-2">{item.category} • {item.location}</p>

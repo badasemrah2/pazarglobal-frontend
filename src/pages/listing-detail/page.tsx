@@ -7,6 +7,7 @@ import Footer from '../home/components/Footer';
 import ChatBox from '../../components/feature/ChatBox';
 import { toCanonicalCondition } from '../../lib/condition';
 import { supabase } from '../../lib/supabase';
+import { getExampleListingBadgeUI, isExampleListingOwner } from '../../lib/exampleListing';
 import { getPremiumBadgeUI } from '../../lib/premiumBadge';
 import { buildCanonicalUrl, buildListingPath, PREFERRED_ORIGIN } from '../../lib/seo';
 
@@ -211,6 +212,7 @@ function ReportModal({ listingId, listingTitle, onClose }: ReportModalProps) {
 
 interface ListingDetail {
   id: string;
+  user_id: string;
   title: string;
   description: string;
   price: number;
@@ -256,6 +258,7 @@ export default function ListingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [contactLoading, setContactLoading] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const exampleUi = getExampleListingBadgeUI();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -340,6 +343,7 @@ export default function ListingDetailPage() {
 
         setListing({
           id: data.id,
+          user_id: data.user_id,
           title: data.title,
           description: data.description || '',
           price: data.price,
@@ -504,6 +508,8 @@ export default function ListingDetailPage() {
     );
   }
 
+  const isExampleListing = isExampleListingOwner(listing.user_id);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
       <TopNavigation isScrolled={isScrolled} />
@@ -524,6 +530,12 @@ export default function ListingDetailPage() {
                   alt={listing.title}
                   className="w-full h-full object-cover"
                 />
+                {isExampleListing ? (
+                  <div className={`absolute top-4 left-4 px-4 py-2 ${exampleUi.solidClassName} text-sm font-bold rounded-full flex items-center space-x-2 shadow-lg`}>
+                    <i className={exampleUi.icon} />
+                    <span>{exampleUi.label}</span>
+                  </div>
+                ) : null}
                 {listing.is_premium && (
                   (() => {
                     const ui = getPremiumBadgeUI(listing.premium_badge);
@@ -570,21 +582,34 @@ export default function ListingDetailPage() {
               {/* Title & Price */}
               <div className="bg-white rounded-2xl p-6 shadow-lg">
                 <div className="flex items-start justify-between mb-4">
-                  {listing.is_premium ? (
-                    (() => {
-                      const ui = getPremiumBadgeUI(listing.premium_badge);
-                      return (
-                        <div className={`mr-3 mt-1 inline-flex items-center space-x-2 px-4 py-2 ${ui.className} text-white text-sm font-bold rounded-full flex-shrink-0`}>
-                          <i className={ui.icon} />
-                          <span>{ui.label}</span>
-                        </div>
-                      );
-                    })()
-                  ) : null}
+                  <div className="mr-3 mt-1 flex flex-shrink-0 flex-wrap gap-2">
+                    {listing.is_premium ? (
+                      (() => {
+                        const ui = getPremiumBadgeUI(listing.premium_badge);
+                        return (
+                          <div className={`inline-flex items-center space-x-2 px-4 py-2 ${ui.className} text-white text-sm font-bold rounded-full`}>
+                            <i className={ui.icon} />
+                            <span>{ui.label}</span>
+                          </div>
+                        );
+                      })()
+                    ) : null}
+                    {isExampleListing ? (
+                      <div className={`inline-flex items-center space-x-2 px-4 py-2 ${exampleUi.softClassName} text-sm font-semibold rounded-full`}>
+                        <i className={exampleUi.icon} />
+                        <span>{exampleUi.label}</span>
+                      </div>
+                    ) : null}
+                  </div>
                   <div className="flex-1">
                     <h1 className="text-3xl font-bold text-gray-900">
                       {listing.title}
                     </h1>
+                    {isExampleListing ? (
+                      <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+                        {exampleUi.note}
+                      </p>
+                    ) : null}
                     <div className="mt-2 text-sm text-gray-500 flex items-center space-x-2">
                       <i className="ri-hashtag" />
                       <span title={listing.id}>İlan ID: {listing.id}</span>
