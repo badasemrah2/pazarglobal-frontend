@@ -60,7 +60,37 @@ serve(async (req: Request) => {
     let maxTokens = 500;
     let temperature = 0.7;
 
-    const sanitizeKeywords = (keywords: unknown, fallbackText: string): { keywords: string[]; keywords_text: string } => {
+    const inferSynonyms = (input: { category?: string; title?: string; description?: string }): string[] => {
+      const categoryLc = (input.category || '').toLowerCase();
+      const titleLc = (input.title || '').toLowerCase();
+      const descLc = (input.description || '').toLowerCase();
+      const haystack = `${categoryLc} ${titleLc} ${descLc}`;
+      const add = new Set<string>();
+
+      if (categoryLc.includes('otomotiv') || categoryLc.includes('vasıta') || categoryLc.includes('vasita') || categoryLc.includes('araç') || categoryLc.includes('arac')) {
+        for (const w of ['araba', 'otomobil', 'araç', 'otomotiv']) add.add(w);
+      }
+
+      if (categoryLc.includes('emlak') || categoryLc.includes('konut') || categoryLc.includes('gayrimenkul')) {
+        for (const w of ['emlak', 'ev', 'daire', 'konut']) add.add(w);
+      }
+
+      if (categoryLc.includes('elektronik') || haystack.includes('telefon') || haystack.includes('iphone') || haystack.includes('samsung') || haystack.includes('xiaomi')) {
+        for (const w of ['elektronik', 'telefon', 'cep telefonu', 'akıllı telefon']) add.add(w);
+      }
+
+      if (haystack.includes('laptop') || haystack.includes('notebook') || haystack.includes('lenovo') || haystack.includes('dell') || haystack.includes('asus') || haystack.includes('hp') || haystack.includes('macbook')) {
+        for (const w of ['bilgisayar', 'laptop', 'notebook']) add.add(w);
+      }
+
+      return Array.from(add);
+    };
+
+    const sanitizeKeywords = (
+      keywords: unknown,
+      fallbackText: string,
+      context: { category?: string; title?: string; description?: string }
+    ): { keywords: string[]; keywords_text: string } => {
       const list = Array.isArray(keywords) ? keywords : [];
       const cleaned = list
         .map((k) => (typeof k === 'string' ? k.trim().toLowerCase() : ''))
@@ -68,6 +98,11 @@ serve(async (req: Request) => {
         .map((k) => k.replace(/[^0-9a-zçğıöşü+\s-]/gi, ''))
         .map((k) => k.trim())
         .filter(Boolean);
+
+      for (const s of inferSynonyms(context)) {
+        cleaned.push(s.toLowerCase());
+      }
+
       const seen = new Set<string>();
       const deduped: string[] = [];
       for (const k of cleaned) {
@@ -157,41 +192,45 @@ Kurallar:
             }
           );
         }
-        prompt = `"${category}" kategorisinde "${title}" ürünü için profesyonel, çekici ve detaylı bir başlık oluştur. 
+        prompt = `"${category}" kategorisinde "${title}" ürünü için satış odaklı, doğal ve güven veren bir ilan başlığı yaz.
 
 Kurallar:
-- Kullanıcının yazdığı "${title}" kelimesini mutlaka kullan ve ona uygun başlık üret
-- Kategori: "${category}" - Bu kategoriye uygun başlık olmalı
-- Başlık maksimum 80 karakter olsun
-- Ürün özelliklerini ekle (marka, model, özellikler)
-- Türkiye pazarına uygun olsun
-- Sadece başlığı yaz, başka açıklama ekleme
+      - Kullanıcının verdiği ana ürünü koru, uydurma özellik ekleme
+      - 45-80 karakter aralığında tek satır başlık üret
+      - Marka/model varsa başa yakın konumlandır
+      - Gereksiz abartı, clickbait ve ünlem zinciri kullanma
+      - Türkiye ilan diline uygun yaz
+      - Sadece başlığı yaz, başka açıklama ekleme
 
 Örnek: Kullanıcı "laptop" yazdıysa → "Dell Inspiron 15 Laptop - i7 İşlemci, 16GB RAM, 512GB SSD"`;
         break;
       }
 
       case 'suggest_description': {
-        prompt = `"${category}" kategorisinde "${title}" başlıklı bir ürün için profesyonel bir açıklama yaz. Açıklama:
-- Emoji kullan
-- Ürün özelliklerini listele
-- Satış odaklı olsun
-- Maksimum 500 karakter
-- WhatsApp iletişim bilgisi ekle`;
+        prompt = `"${category}" kategorisinde "${title}" başlıklı ürün için ilan açıklaması oluştur.
+
+      Kurallar:
+      - Doğal konuşma dili kullan, robotik metin üretme
+      - Uydurma özellik, garanti, kutu bilgisi ekleme
+      - 3 kısa paragraf veya maddeli yapı kullan
+      - Ürün durumu, öne çıkan özellikler, teslimat/pazarlık notu içersin
+      - İletişim bilgisi/telefon numarası ekleme
+      - Maksimum 550 karakter`;
         break;
       }
 
       case 'improve_text': {
-        prompt = `Şu ilan açıklamasını iyileştir ve daha profesyonel hale getir:
+        prompt = `Aşağıdaki ilan açıklamasını iyileştir. Anlamı koru, daha net ve güven verici hale getir:
 
 "${description}"
 
 İyileştirme kuralları:
-- Emoji ekle
-- Daha çekici yap
-- Satış odaklı detaylar ekle
-- Maksimum 500 karakter
-- WhatsApp iletişim vurgusu yap`;
+      - Bilgiyi bozmadan düzenle, yeni teknik özellik uydurma
+      - Gereksiz süslü dil ve spam kelimeler kullanma
+      - Okunabilirliği artır, kısa cümleler tercih et
+      - Uygunsa 1-2 adet sade emoji kullan
+      - İletişim bilgisi/telefon ekleme
+      - Maksimum 550 karakter`;
         break;
       }
 
@@ -566,7 +605,11 @@ Kurallar:
       const parsed = tryParseJsonObject(result);
       const keywords = parsed?.keywords;
       const keywordsText = typeof parsed?.keywords_text === 'string' ? parsed.keywords_text : '';
-      const sanitized = sanitizeKeywords(keywords, keywordsText);
+      const sanitized = sanitizeKeywords(keywords, keywordsText, {
+        category: typeof category === 'string' ? category : '',
+        title: typeof title === 'string' ? title : '',
+        description: typeof description === 'string' ? description : '',
+      });
 
       // If model returned nothing useful, treat as failure so caller can fallback.
       if (!sanitized.keywords || sanitized.keywords.length === 0) {
