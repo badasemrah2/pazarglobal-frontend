@@ -13,6 +13,13 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 // @ts-ignore - Local import
 import { corsHeaders } from '../_shared/cors.ts';
 
+declare const Deno: {
+  env: {
+    get: (key: string) => string | undefined;
+  };
+  serve: (handler: (req: Request) => Response | Promise<Response>) => void;
+};
+
 // @ts-ignore - Deno global
 const BACKEND_URL = Deno.env.get('BACKEND_URL') || 'https://pazarglobal-agent-production.up.railway.app';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
@@ -262,6 +269,7 @@ Deno.serve(async (req: Request) => {
           response: backendData?.response || backendData?.message || '',
           intent: backendData?.intent,
           data: backendData?.data,
+          user_id: activeSession.user_id,
           session: injectedSessionContext,
         };
 
