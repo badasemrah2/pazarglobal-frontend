@@ -20,6 +20,310 @@ const denoEnv = (globalThis as unknown as {
   Deno?: { env?: { get?: (key: string) => string | undefined } };
 }).Deno?.env;
 
+// ─────────────────────────────────────────────
+// KATEGORİ PROFİL SİSTEMİ
+// ─────────────────────────────────────────────
+type CategoryProfile = {
+  group: string;
+  systemPrompt: string;
+  titlePattern: string;
+  titleExample: string;
+  descriptionFramework: string;
+  descriptionRules: string[];
+  improveFramework: string;
+  improveRules: string[];
+  toneKeywords: string[];
+  emojiStyle: string;
+};
+
+function getCategoryProfile(category: string): CategoryProfile {
+  const cat = category.trim();
+
+  // ─── GRUP 1: OTOMOTİV ───────────────────────────────────────
+  if (cat === 'Otomotiv' || cat === 'Yedek Parça & Aksesuar') {
+    return {
+      group: 'otomotiv',
+      systemPrompt: `Sen Türkiye'nin en iyi ikinci el ilan platformlarında (Sahibinden, Arabam.com) yıllarca çalışmış deneyimli bir araç ilan danışmanısın. Alıcılar hasar kaydı, tramer ve bakım geçmişi konusunda endişelidir. Görevin: satıcının verdiği bilgiyi şüphe bırakmayan, güven veren bir dille yazmak. Asla bilgi uydurmak yok.`,
+      titlePattern: '[Marka] [Model] [Yıl] - [km veya öne çıkan özellik]',
+      titleExample: 'Volkswagen Golf 2019 - 85.000 km, Otomatik, Boyasız',
+      descriptionFramework: `1. GÜVEN AÇILIŞI: Araç durumunu dürüstçe 1 cümleyle özetle
+2. TEKNİK DETAY: Motor, km, donanım, bakım bilgisi
+3. DURUM NOTU: Hasar/boya durumu (varsa açıkça yaz, yoksa "hasar kaydı yoktur" de)
+4. NEDEN SATILIYOR + KAPANIŞ: Satış sebebi + pazarlık/takas notu`,
+      descriptionRules: [
+        'Hasar kaydı bilgisi mutlaka olsun (var/yok)',
+        'km bilgisi varsa başa yakın konumlandır',
+        'Uydurma bakım geçmişi yazma',
+        'Takas veya pazarlık durumunu belirt',
+        'İletişim bilgisi ekleme',
+        'Max 550 karakter',
+      ],
+      improveFramework: `Mevcut metni şu sıraya göre yeniden düzenle:
+1. Araç durumu ve km → öne al
+2. Teknik detaylar → ortaya topla
+3. Hasar/boya durumu → açıkça belirt (yoksa "hasar kaydı yoktur" ekle)
+4. Satış sebebi + pazarlık notu → sona bırak`,
+      improveRules: [
+        'Hasar kaydı bilgisi yoksa "hasar kaydı yoktur" ekle',
+        'km bilgisi varsa ilk 2 cümlede geçsin',
+        'Abartılı sıfatları (muhteşem, süper, harika) kaldır',
+        'Teknik bilgileri kısaltma, sadece düzenle',
+        'Tramer/boya ifadesi geçiyorsa doğrudan bırak, yumuşatma',
+        'Max 550 karakter',
+      ],
+      toneKeywords: ['güven', 'dürüst', 'teknik', 'net'],
+      emojiStyle: '🚗 veya 🔧 — sadece bölüm başında, max 1 adet',
+    };
+  }
+
+  // ─── GRUP 2: EMLAK ──────────────────────────────────────────
+  if (cat === 'Emlak') {
+    return {
+      group: 'emlak',
+      systemPrompt: `Sen Türkiye'nin en iyi ikinci el ilan platformlarında (Sahibinden, Emlakjet) yıllarca çalışmış deneyimli bir emlak ilan danışmanısın. Alıcılar "burada mutlu olur muyum?" sorusunu sorar. Görevin: rakamları ve konumu net ver, yaşam kalitesini somut detaylarla hissettir. Asla bilgi uydurmak yok.`,
+      titlePattern: '[Tip] [m²] [Oda] - [Semt/İlçe], [öne çıkan özellik]',
+      titleExample: '3+1 120m² Daire - Kadıköy, Asansörlü, Isıyalıtımlı',
+      descriptionFramework: `1. LOKASYON & YAŞAM: Semt özellikleri, ulaşım, çevre
+2. YAPI & DAİRE: m², oda sayısı, kat, bina yaşı, cephe
+3. ÖNE ÇIKANLAR: Balkon, otopark, site/müstakil, ısınma
+4. PRATİK DETAY + KAPANIŞ: Kullanım durumu (kiracılı/boş), tapu, pazarlık`,
+      descriptionRules: [
+        'Metrekare ve oda sayısı mutlaka belirt',
+        'Bina yaşı veya yapı tarihi varsa yaz',
+        'Ulaşım noktalarına mesafe (metro, durak) somut ol',
+        '"Manzaralı" veya "lüks" gibi belirsiz sıfatlarla bilgi uydurma',
+        'İletişim bilgisi ekleme',
+        'Max 550 karakter',
+      ],
+      improveFramework: `Mevcut metni şu sıraya göre yeniden düzenle:
+1. Konum ve semt avantajı → öne al
+2. Fiziksel özellikler (m², oda, kat) → ortada topla
+3. Öne çıkan donanım (balkon, otopark, ısıtma) → listele
+4. Kullanım durumu + tapu/pazarlık notu → sona`,
+      improveRules: [
+        '"Merkezi konum", "nezih semt" gibi belirsiz ifadeleri somutlaştır',
+        'Ulaşım bilgisi varsa koruyup öne al',
+        'Oda/m² bilgisi eksikse var olanı daha görünür yap',
+        '"Müstakil kullanım", "kiracılı" gibi kritik bilgileri kaybetme',
+        'Emlak spam kelimeleri (acil, şans, kaçmaz fırsat) kaldır',
+        'Max 550 karakter',
+      ],
+      toneKeywords: ['güven', 'somut', 'lokasyon', 'yaşam'],
+      emojiStyle: '🏠 veya 📍 — sadece bölüm geçişinde, max 2 adet',
+    };
+  }
+
+  // ─── GRUP 3: ELEKTRONİK ────────────────────────────────────
+  if (cat === 'Elektronik' || cat === 'Dijital Ürün & Hizmetler') {
+    return {
+      group: 'elektronik',
+      systemPrompt: `Sen Türkiye'nin en iyi ikinci el ilan platformlarında (Sahibinden, Letgo) yıllarca çalışmış, teknoloji ürünlerini iyi tanıyan deneyimli bir elektronik ilan danışmanısın. Alıcılar fiyat/performans karşılaştırması yapar, ekran/batarya/hasar durumunu mutlaka sorar. Görevin: teknik detayı önce ver, güveni garanti ve aksesuar bilgisiyle tamamla. Asla bilgi uydurmak yok.`,
+      titlePattern: '[Marka] [Model] [Kapasite/Spec] - [Renk veya durum notu]',
+      titleExample: 'Apple iPhone 15 Pro 256GB - Titanyum Siyah, Kutulu',
+      descriptionFramework: `1. SPEC ÖZET: En önemli 3-4 teknik özellik (depolama, RAM, işlemci vb.)
+2. DURUM: Ekran, kasa, batarya sağlığı — dürüst ve net
+3. AKSESUAR & GARANTİ: Kutu, şarj aleti, kılıf, garanti durumu
+4. KAPANIŞ: Fiyat sabit/pazarlık + teslimat notu`,
+      descriptionRules: [
+        'Batarya sağlığı veya genel durum mutlaka belirt',
+        'Ekranda çizik/kırık varsa açıkça yaz',
+        '"Sıfır gibi" ifadesi kullanma, somut durum yaz (örn: "ekranda çizik yok, kasa temiz")',
+        'Aksesuar listesi kısa ve net olsun',
+        'İletişim bilgisi ekleme',
+        'Max 550 karakter',
+      ],
+      improveFramework: `Mevcut metni şu sıraya göre yeniden düzenle:
+1. Model ve kritik spec (depolama, RAM, işlemci) → ilk cümle
+2. Fiziksel ve batarya durumu → ikinci blok
+3. Aksesuar/kutu bilgisi → üçüncü blok
+4. Fiyat tutumu + teslimat → kapanış`,
+      improveRules: [
+        '"Sıfır gibi" ifadesini somut durumla değiştir (örn: "ekranda çizik yok, kasa temiz")',
+        'Batarya sağlığı % olarak geçiyorsa koru ve öne al',
+        'Teknik spec kısaltma, sadece sıralamayı düzenle',
+        'Gereksiz ünlem ve emoji zincirini temizle',
+        'Aksesuar listesini virgülle ayır, madde yapma',
+        'Max 550 karakter',
+      ],
+      toneKeywords: ['teknik', 'net', 'dürüst', 'karşılaştırmalı'],
+      emojiStyle: '📱 veya 💻 — başlıkta 1 kez, metinde kullanma',
+    };
+  }
+
+  // ─── GRUP 4: YAŞAM & TÜKETİM ────────────────────────────────
+  if (
+    cat === 'Ev & Yaşam' ||
+    cat === 'Moda & Aksesuar' ||
+    cat === 'Spor & Outdoor' ||
+    cat === 'Anne, Bebek & Oyuncak' ||
+    cat === 'Hayvanlar Alemi' ||
+    cat === 'Tarım & Gıda'
+  ) {
+    const subTone =
+      cat === 'Anne, Bebek & Oyuncak'
+        ? 'güvenli, temiz, sıcak'
+        : cat === 'Hayvanlar Alemi'
+        ? 'sevecen, bilgilendirici, güven veren'
+        : cat === 'Moda & Aksesuar'
+        ? 'şık, özlü, görsel odaklı'
+        : cat === 'Tarım & Gıda'
+        ? 'doğal, dürüst, ürün odaklı'
+        : 'pratik, sade, fayda odaklı';
+
+    return {
+      group: 'yasam-tuketim',
+      systemPrompt: `Sen Türkiye'nin en iyi ikinci el ilan platformlarında (Sahibinden, Letgo) yıllarca çalışmış deneyimli bir ilan danışmanısın. Bu kategoride alıcı "durumu nasıl?" sorusunu sorar. Ton: ${subTone}. Görevin: satıcının verdiği bilgiyi koruyarak pratik fayda ve ürün durumunu net anlat. Asla bilgi uydurmak yok.`,
+      titlePattern: '[Marka/Tür] [Ürün Adı] - [Beden/Renk/Boyut veya durum]',
+      titleExample:
+        cat === 'Moda & Aksesuar'
+          ? 'Zara Oversize Keten Gömlek - L Beden, Sadece 1 Kez Giyildi'
+          : cat === 'Spor & Outdoor'
+          ? 'Nike Air Max 270 - 42 Numara, Az Kullanılmış'
+          : 'IKEA Billy Kitaplık - Beyaz, Demonte, Eksiksiz',
+      descriptionFramework: `1. ÜRÜN TANIMI: Ne olduğu, markası, modeli (1 cümle)
+2. DURUM: Kaç kez kullanıldı, gözle görülür hasar/leke var mı
+3. DETAY: Beden, renk, ölçü, malzeme (kategoriye göre)
+4. KAPANIŞ: Teslimat/kargo bilgisi + pazarlık notu`,
+      descriptionRules: [
+        'Durum bilgisi (az kullanılmış / 1 kez kullanıldı / hiç kullanılmadı) mutlaka belirt',
+        'Görünür bir kusur varsa açıkça yaz, gizleme',
+        'Beden/ölçü/renk bilgisini net ver',
+        ...(cat === 'Anne, Bebek & Oyuncak' ? ['Hijyen ve güvenlik durumunu vurgula'] : ['Marka biliniyorsa başa yakın konumlandır']),
+        'İletişim bilgisi ekleme',
+        'Max 550 karakter',
+      ],
+      improveFramework: `Mevcut metni şu sıraya göre yeniden düzenle:
+1. Ürün tanımı ve marka → kısa ve net aç
+2. Kullanım durumu → dürüstçe ve somut belirt
+3. Beden/renk/ölçü detayı → kaybetme
+4. Teslimat veya teslim şekli → sona`,
+      improveRules: [
+        'Kullanım sayısı veya durumu varsa öne al ("1 kez kullanıldı" gibi)',
+        'Görünür kusur varsa yumuşatma, olduğu gibi bırak',
+        'Beden/numara bilgisi geçiyorsa vurgula',
+        ...(cat === 'Anne, Bebek & Oyuncak' ? ['Hijyen ve güvenlik vurgusunu koru'] : []),
+        '"Az kullanıldı" gibi muğlak ifadeleri somutlaştır',
+        'Max 550 karakter',
+      ],
+      toneKeywords: [subTone],
+      emojiStyle: 'Uygun 1 emoji — bölüm ayracı olarak (✅ 🔹 📦)',
+    };
+  }
+
+  // ─── GRUP 5: HİZMET & B2B ───────────────────────────────────
+  if (
+    cat === 'Hizmetler' ||
+    cat === 'İş İlanları' ||
+    cat === 'Eğitim & Kurs' ||
+    cat === 'İş Makineleri & Sanayi'
+  ) {
+    return {
+      group: 'hizmet-b2b',
+      systemPrompt: `Sen profesyonel hizmet ve iş ilanları yazan deneyimli bir kopya yazarısın. Bu kategoride alıcı değil, müşteri veya işveren var. Uzmanlık, kapsam ve güvenilirlik ön planda olmalı. Net teklif dili kullan, belirsiz ifadelerden kaçın. Asla bilgi uydurmak yok.`,
+      titlePattern: '[Hizmet/Pozisyon Adı] - [Uzmanlık Alanı veya Lokasyon]',
+      titleExample:
+        cat === 'Eğitim & Kurs'
+          ? 'Matematik Özel Dersi - LGS/YKS, Online & Yüz Yüze'
+          : cat === 'İş İlanları'
+          ? 'Grafik Tasarımcı Aranıyor - Uzaktan, Tam Zamanlı'
+          : 'Tadilat & Boya Hizmeti - İstanbul Anadolu Yakası',
+      descriptionFramework: `1. HİZMET/KAPSAM: Ne sunuluyor, tam olarak ne kapsıyor
+2. UZMANLIK: Deneyim, sertifika, referans (varsa)
+3. DETAY: Lokasyon, çalışma şekli (online/yüz yüze/saha), süre
+4. ÇAĞRI: Nasıl iletişime geçilmeli, süreç nasıl işliyor`,
+      descriptionRules: [
+        'Hizmet kapsamını net yaz, muğlak bırakma',
+        'Deneyim yılı veya referans varsa belirt',
+        'Fiyat politikasını belirt (sabit / teklif üzerine / ücretsiz görüşme)',
+        'Çalışma bölgesi veya online imkanı net yaz',
+        'Hizmet ilanlarında iletişim çağrısı eklenebilir — telefon numarası ekleme',
+        'Max 550 karakter',
+      ],
+      improveFramework: `Mevcut metni şu sıraya göre yeniden düzenle:
+1. Hizmet/pozisyon tanımı → ilk cümle, net ve özlü
+2. Kapsam ve detay → madde veya kısa paragraf
+3. Deneyim/uzmanlık → varsa koru, yoksa ekleme
+4. İletişim/başvuru yöntemi → kapanışta açık bırak`,
+      improveRules: [
+        'Hizmet kapsamını netleştir, muğlak fiilleri kaldır',
+        'Deneyim bilgisi varsa "yıl" olarak somutlaştır',
+        'Lokasyon veya online bilgisi geçiyorsa koru',
+        'Fiyat politikası belirsizse "teklif alın" yönlendirmesi yap',
+        'Resmi ama sıcak ton koru',
+        'Max 550 karakter',
+      ],
+      toneKeywords: ['uzman', 'güvenilir', 'net', 'profesyonel'],
+      emojiStyle: '✅ veya 🔹 — madde başlarında kullanılabilir, max 3',
+    };
+  }
+
+  // ─── GRUP 6: HOBİ & NİŞ ────────────────────────────────────
+  if (cat === 'Hobi, Koleksiyon & Sanat' || cat === 'Diğer') {
+    return {
+      group: 'hobi-nis',
+      systemPrompt: `Sen Türkiye'nin en iyi ikinci el ilan platformlarında koleksiyon ve hobi ürünlerini değerini bilen deneyimli bir ilan danışmanısın. Bu kategoride alıcı genellikle bilgili ve istekli. Ürünün özgünlüğü, nadirliği veya hikayesi değer katar. Net ve özgün bir dil kullan. Asla bilgi uydurmak yok.`,
+      titlePattern: '[Ürün Adı] - [Dönem/Seri/Özellik], [Durum]',
+      titleExample: 'Lego Technic 42083 Bugatti - Kutulu, Tamamlanmış Set',
+      descriptionFramework: `1. ÜRÜN KİMLİĞİ: Ne olduğu, hangi seri/dönem/koleksiyon
+2. DURUM: Orijinallik, eksik parça var mı, kutu/sertifika durumu
+3. HİKAYESİ: Neden değerli, nereden edinildi (kısa)
+4. KAPANIŞ: Fiyat ve pazarlık tutumu`,
+      descriptionRules: [
+        'Orijinallik ve komple/eksik durumu net belirt',
+        'Koleksiyon değeri olan detayları öne çıkar',
+        '"Nadir" veya "değerli" deme, kanıtla',
+        'Kutu/sertifika varsa mutlaka belirt',
+        'İletişim bilgisi ekleme',
+        'Max 550 karakter',
+      ],
+      improveFramework: `Mevcut metni şu sıraya göre yeniden düzenle:
+1. Ürün kimliği ve koleksiyon değeri → öne al
+2. Orijinallik ve eksiksizlik durumu → net belirt
+3. Kutu/sertifika/aksesuar → varsa koru
+4. Fiyat tutumu → kapanışta`,
+      improveRules: [
+        'Koleksiyon detaylarını (seri no, baskı yılı, üretim) koru',
+        '"Nadir" veya "değerli" ifadesi geçiyorsa kanıtla ya da kaldır',
+        'Eksik parça bilgisi varsa gizleme',
+        'Özgün hikayeyi koruyup sıkıştır',
+        'Max 550 karakter',
+      ],
+      toneKeywords: ['özgün', 'bilgili', 'tutkulu', 'net'],
+      emojiStyle: 'Tematik 1 emoji (🎨 🎮 🏆) — sadece başlıkta',
+    };
+  }
+
+  // ─── FALLBACK ────────────────────────────────────────────────
+  return {
+    group: 'genel',
+    systemPrompt: `Sen Türkiye'nin en iyi ikinci el ilan platformlarında (Sahibinden, Letgo) yıllarca çalışmış deneyimli bir ilan danışmanısın. Satıcının verdiği bilgiyi koruyarak güven veren, sade ve net bir metin oluştur. Asla bilgi uydurmak yok.`,
+    titlePattern: '[Ürün Adı] - [En ayırt edici özellik]',
+    titleExample: 'Bisiklet Çantası - Su Geçirmez, 20L, Sırt',
+    descriptionFramework: `1. ÜRÜN: Ne olduğu, markası
+2. DURUM: Kullanım durumu, gözle görülür kusur var mı
+3. DETAY: Öne çıkan özellikler
+4. KAPANIŞ: Teslimat/pazarlık notu`,
+    descriptionRules: [
+      'Durum bilgisi mutlaka belirt',
+      'Bilgi uydurma',
+      'İletişim bilgisi ekleme',
+      'Max 550 karakter',
+    ],
+    improveFramework: `Mevcut metni şu sıraya göre yeniden düzenle:
+1. Ürün ve durum → öne al
+2. Detaylar → kısa ve net
+3. Kapanış → pazarlık/teslimat notu`,
+    improveRules: [
+      'Mevcut bilgileri koru, yeni bilgi uydurma',
+      'Abartılı sıfatları kaldır',
+      'Okunabilirliği artır, kısa cümleler tercih et',
+      'Max 550 karakter',
+    ],
+    toneKeywords: ['sade', 'dürüst', 'net'],
+    emojiStyle: 'Max 1 emoji, gerekirse',
+  };
+}
+
 serve(async (req: Request) => {
   // CORS preflight
   if (req.method === 'OPTIONS') {
@@ -54,11 +358,12 @@ serve(async (req: Request) => {
     const supabaseKey = denoEnv?.get?.('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    const profile = getCategoryProfile(category ?? '');
     let prompt = '';
-    let systemPrompt = 'Sen profesyonel bir ilan yazma uzmanısın. Türkiye pazarına özel, çekici ve satış odaklı içerikler üretiyorsun.';
+    let systemPrompt = profile.systemPrompt;
     let expectsJsonResult = false;
     let maxTokens = 500;
-    let temperature = 0.7;
+    let temperature = 0.65;
 
     const inferSynonyms = (input: { category?: string; title?: string; description?: string }): string[] => {
       const categoryLc = (input.category || '').toLowerCase();
@@ -192,45 +497,72 @@ Kurallar:
             }
           );
         }
-        prompt = `"${category}" kategorisinde "${title}" ürünü için satış odaklı, doğal ve güven veren bir ilan başlığı yaz.
+        maxTokens = 120;
+        temperature = 0.5;
+        prompt = `Kategori: ${category}
+Ürün: ${title}
+Durum: ${condition || 'belirtilmedi'}
 
-Kurallar:
-      - Kullanıcının verdiği ana ürünü koru, uydurma özellik ekleme
-      - 45-80 karakter aralığında tek satır başlık üret
-      - Marka/model varsa başa yakın konumlandır
-      - Gereksiz abartı, clickbait ve ünlem zinciri kullanma
-      - Türkiye ilan diline uygun yaz
-      - Sadece başlığı yaz, başka açıklama ekleme
+Başlık deseni: ${profile.titlePattern}
+Örnek çıktı: ${profile.titleExample}
 
-Örnek: Kullanıcı "laptop" yazdıysa → "Dell Inspiron 15 Laptop - i7 İşlemci, 16GB RAM, 512GB SSD"`;
+Bu desene uygun, alıcının arama sorgusunu karşılayan, 45-75 karakter arası tek satır başlık yaz.
+Clickbait yok. Ünlem zinciri yok. Uydurma özellik ekleme.
+Sadece başlığı döndür.`;
         break;
       }
 
       case 'suggest_description': {
-        prompt = `"${category}" kategorisinde "${title}" başlıklı ürün için ilan açıklaması oluştur.
+        maxTokens = 500;
+        temperature = 0.65;
+        prompt = `Kategori: ${category}
+Başlık: ${title}
+Durum: ${condition || 'belirtilmedi'}
 
-      Kurallar:
-      - Doğal konuşma dili kullan, robotik metin üretme
-      - Uydurma özellik, garanti, kutu bilgisi ekleme
-      - 3 kısa paragraf veya maddeli yapı kullan
-      - Ürün durumu, öne çıkan özellikler, teslimat/pazarlık notu içersin
-      - İletişim bilgisi/telefon numarası ekleme
-      - Maksimum 550 karakter`;
+Açıklama yapısı:
+${profile.descriptionFramework}
+
+Kurallar:
+${profile.descriptionRules.map((r) => `- ${r}`).join('\n')}
+
+Emoji stili: ${profile.emojiStyle}
+Ton: ${profile.toneKeywords.join(', ')}`;
         break;
       }
 
       case 'improve_text': {
-        prompt = `Aşağıdaki ilan açıklamasını iyileştir. Anlamı koru, daha net ve güven verici hale getir:
+        if (!description || description.trim().length < 10) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'İyileştirilecek metin çok kısa veya boş.',
+            }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 400,
+            }
+          );
+        }
+        maxTokens = 400;
+        temperature = 0.4;
+        prompt = `Kategori: ${category}
+Ürün: ${title || 'belirtilmedi'}
 
+İyileştirilecek metin:
 "${description}"
 
-İyileştirme kuralları:
-      - Bilgiyi bozmadan düzenle, yeni teknik özellik uydurma
-      - Gereksiz süslü dil ve spam kelimeler kullanma
-      - Okunabilirliği artır, kısa cümleler tercih et
-      - Uygunsa 1-2 adet sade emoji kullan
-      - İletişim bilgisi/telefon ekleme
-      - Maksimum 550 karakter`;
+Yeniden düzenleme yapısı:
+${profile.improveFramework}
+
+Kurallar:
+${profile.improveRules.map((r) => `- ${r}`).join('\n')}
+
+Genel kurallar:
+- Mevcut bilgileri koru, bilgi uydurma
+- Emoji stili: ${profile.emojiStyle}
+- Ton: ${profile.toneKeywords.join(', ')}
+- İletişim bilgisi/telefon ekleme
+- Sadece iyileştirilmiş metni döndür`;
         break;
       }
 
