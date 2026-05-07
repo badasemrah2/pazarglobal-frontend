@@ -3,8 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import TopNavigation from '../../components/feature/TopNavigation';
 import Footer from '../home/components/Footer';
 import ChatBox from '../../components/feature/ChatBox';
+import { isOwnedByViewer, resolveViewerUserId } from '../../lib/listingOwnership';
 import { fetchPublicContactLink, resolveContactToken, sendMessageViaContactToken } from '../../services/agentApi';
-import { supabase } from '../../lib/supabase';
+import { useAuthStore } from '../../stores/authStore';
 
 const sessionStorageKey = 'pg_contact_sender_session_id';
 
@@ -23,38 +24,25 @@ function getOrCreateSenderSessionId() {
 export default function ContactPage() {
   const navigate = useNavigate();
   const { token = '', listingId = '' } = useParams<{ token?: string; listingId?: string }>();
+  const { user, customUser } = useAuthStore();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [ownerName, setOwnerName] = useState('İlan Sahibi');
+  const [ownerUserId, setOwnerUserId] = useState('');
   const [listingTitle, setListingTitle] = useState('');
   const [message, setMessage] = useState('');
   const [senderName, setSenderName] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [resolvedToken, setResolvedToken] = useState('');
-  const [senderUserId, setSenderUserId] = useState<string | undefined>(undefined);
 
   const senderSessionId = useMemo(() => getOrCreateSenderSessionId(), []);
-
-  useEffect(() => {
-    let mounted = true;
-    const run = async () => {
-      try {
-        const { data } = await supabase.auth.getUser();
-        if (!mounted) return;
-        const uid = data?.user?.id;
-        setSenderUserId(uid || undefined);
-      } catch {
-        if (mounted) setSenderUserId(undefined);
-      }
-    };
-
-    void run();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const senderUserId = useMemo(() => {
+    const viewerUserId = resolveViewerUserId({ userId: user?.id, customUserId: customUser?.id });
+    return viewerUserId || undefined;
+  }, [customUser?.id, user?.id]);
+  const isOwnListingTarget = isOwnedByViewer(senderUserId, ownerUserId);
 
   useEffect(() => {
     let mounted = true;
@@ -94,6 +82,7 @@ export default function ContactPage() {
           return;
         }
 
+        setOwnerUserId(String(listing.owner_user_id || '').trim());
         setOwnerName(listing.owner_name || 'İlan Sahibi');
         setListingTitle(listing.title || 'İlan');
       } catch (err) {
@@ -111,6 +100,11 @@ export default function ContactPage() {
   }, [token, listingId]);
 
   const handleSend = async () => {
+    if (isOwnListingTarget) {
+      setError('Kendi ilanınıza mesaj gönderemezsiniz.');
+      return;
+    }
+
     const cleanMessage = message.trim();
     if (!cleanMessage) {
       setError('Lütfen mesaj yazın.');
@@ -137,7 +131,8 @@ export default function ContactPage() {
       setMessage('');
     } catch (err) {
       console.error(err);
-      setError('Mesaj gönderilemedi. Lütfen tekrar deneyin.');
+      const messageText = err instanceof Error ? err.message : 'Mesaj gönderilemedi. Lütfen tekrar deneyin.';
+      setError(messageText.includes('self_contact_not_allowed') ? 'Kendi ilanınıza mesaj gönderemezsiniz.' : 'Mesaj gönderilemedi. Lütfen tekrar deneyin.');
     } finally {
       setSending(false);
     }
@@ -173,6 +168,19 @@ export default function ContactPage() {
                 </div>
               )}
 
+              {isOwnListingTarget ? (
+                <div className="space-y-4">
+                  <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+                    Bu sizin ilanınız. Kendi ilanınıza site içi mesaj gönderemezsiniz.
+                  </div>
+                  <button
+                    onClick={() => navigate('/profile/listings')}
+                    className="w-full py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold"
+                  >
+                    İlanlarıma Dön
+                  </button>
+                </div>
+              ) : (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">Adınız (opsiyonel)</label>
@@ -203,6 +211,7 @@ export default function ContactPage() {
                   {sending ? 'Gönderiliyor...' : 'Mesajı Gönder'}
                 </button>
               </div>
+              )}
             </>
           )}
         </div>

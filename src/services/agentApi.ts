@@ -72,6 +72,7 @@ export type ContactResolveResponse = {
       title: string;
       status: string;
       expires_at?: string | null;
+      owner_user_id?: string;
       owner_name: string;
       owner_phone?: string;
       phone_visibility: 'public' | 'hidden';
@@ -146,7 +147,16 @@ export const sendMessageViaContactToken = async (payload: {
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error(`Mesaj gönderilemedi: ${response.status}`);
+    let detail = '';
+    try {
+      const body = await response.clone().json() as { detail?: string; error?: string; message?: string };
+      detail = body?.detail || body?.error || body?.message || '';
+    } catch {
+      detail = '';
+    }
+
+    const suffix = detail ? ` (${detail})` : '';
+    throw new Error(`Mesaj gönderilemedi: ${response.status}${suffix}`);
   }
   return (await response.json()) as { success: boolean; data?: { conversation_id: string; message_id: string; listing_id: string } };
 };

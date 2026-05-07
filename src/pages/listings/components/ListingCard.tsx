@@ -5,8 +5,10 @@ import type { Listing } from '../../../types/listing';
 import { toCanonicalCondition } from '../../../lib/condition';
 import { getPremiumBadgeUI } from '../../../lib/premiumBadge';
 import { getExampleListingBadgeUI, isExampleListingOwner } from '../../../lib/exampleListing';
+import { isOwnedByViewer, resolveViewerUserId } from '../../../lib/listingOwnership';
 import { fetchPublicContactLink } from '../../../services/agentApi';
 import { buildListingPath } from '../../../lib/seo';
+import { useAuthStore } from '../../../stores/authStore';
 
 interface ListingCardProps {
   listing: Listing;
@@ -88,10 +90,13 @@ function MagnifierImage({
 
 export default function ListingCard({ listing, viewMode, index }: ListingCardProps) {
   const navigate = useNavigate();
+  const { user, customUser } = useAuthStore();
 
   const premiumUi = getPremiumBadgeUI(listing.premiumBadge);
   const exampleUi = getExampleListingBadgeUI();
   const isExampleListing = isExampleListingOwner(listing.userId);
+  const viewerUserId = resolveViewerUserId({ userId: user?.id, customUserId: customUser?.id });
+  const isOwnListing = isOwnedByViewer(viewerUserId, listing.userId);
   const listingPath = buildListingPath(listing.id, listing.title);
 
   const formatDate = (date: string) => {
@@ -114,6 +119,8 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
 
   const handleContactClick = async (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
+    if (isOwnListing) return;
+
     try {
       const res = await fetchPublicContactLink(listing.id);
       const path = res?.data?.contact_path;
@@ -219,9 +226,14 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
               <button
                 type="button"
                 onClick={(event) => void handleContactClick(event)}
-                className="px-4 py-2 rounded-full bg-gradient-primary text-white text-xs font-semibold hover:shadow-md transition-all"
+                disabled={isOwnListing}
+                className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
+                  isOwnListing
+                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                    : 'bg-gradient-primary text-white hover:shadow-md'
+                }`}
               >
-                İlan Sahibine Mesaj Gönder
+                {isOwnListing ? 'Sizin ilanınız' : 'İlan Sahibine Mesaj Gönder'}
               </button>
             </div>
           </div>
@@ -311,9 +323,14 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
           <button
             type="button"
             onClick={(event) => void handleContactClick(event)}
-            className="px-4 py-2 rounded-full bg-gradient-primary text-white text-xs font-semibold hover:shadow-md transition-all"
+            disabled={isOwnListing}
+            className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
+              isOwnListing
+                ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                : 'bg-gradient-primary text-white hover:shadow-md'
+            }`}
           >
-            Mesaj Gönder
+            {isOwnListing ? 'Sizin ilanınız' : 'Mesaj Gönder'}
           </button>
         </div>
       </div>

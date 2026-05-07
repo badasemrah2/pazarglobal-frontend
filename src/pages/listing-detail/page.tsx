@@ -8,8 +8,10 @@ import ChatBox from '../../components/feature/ChatBox';
 import { toCanonicalCondition } from '../../lib/condition';
 import { supabase } from '../../lib/supabase';
 import { getExampleListingBadgeUI, isExampleListingOwner } from '../../lib/exampleListing';
+import { isOwnedByViewer, resolveViewerUserId } from '../../lib/listingOwnership';
 import { getPremiumBadgeUI } from '../../lib/premiumBadge';
 import { buildCanonicalUrl, buildListingPath, PREFERRED_ORIGIN } from '../../lib/seo';
+import { useAuthStore } from '../../stores/authStore';
 
 // ── Report Modal ─────────────────────────────────────────────────────────────
 const REPORT_REASONS = [
@@ -252,6 +254,7 @@ const upsertCanonical = (href: string) => {
 export default function ListingDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string; slug?: string }>();
+  const { user, customUser } = useAuthStore();
   const [showReport, setShowReport] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [listing, setListing] = useState<ListingDetail | null>(null);
@@ -464,7 +467,7 @@ export default function ListingDetailPage() {
   };
 
   const handleContactMessage = async () => {
-    if (!listing?.id || contactLoading) return;
+    if (!listing?.id || contactLoading || isOwnedByViewer(viewerUserId, listing.user_id)) return;
     try {
       setContactLoading(true);
       navigate(`/contact/listing/${encodeURIComponent(listing.id)}`);
@@ -508,7 +511,9 @@ export default function ListingDetailPage() {
     );
   }
 
+  const viewerUserId = resolveViewerUserId({ userId: user?.id, customUserId: customUser?.id });
   const isExampleListing = isExampleListingOwner(listing.user_id);
+  const isOwnListing = isOwnedByViewer(viewerUserId, listing.user_id);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
@@ -673,11 +678,15 @@ export default function ListingDetailPage() {
 
                 <button
                   onClick={() => void handleContactMessage()}
-                  disabled={contactLoading}
-                  className="w-full py-4 bg-gradient-primary text-white font-semibold rounded-xl hover:shadow-lg transition-all flex items-center justify-center space-x-2 cursor-pointer whitespace-nowrap mb-2 disabled:opacity-60"
+                  disabled={contactLoading || isOwnListing}
+                  className={`w-full py-4 font-semibold rounded-xl transition-all flex items-center justify-center space-x-2 whitespace-nowrap mb-2 ${
+                    isOwnListing
+                      ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                      : 'bg-gradient-primary text-white hover:shadow-lg cursor-pointer'
+                  } disabled:opacity-60`}
                 >
                   <i className="ri-message-3-line text-xl" />
-                  <span>{contactLoading ? 'Bağlantı hazırlanıyor...' : 'İlan Sahibine Mesaj Gönder'}</span>
+                  <span>{isOwnListing ? 'Sizin ilanınız' : contactLoading ? 'Bağlantı hazırlanıyor...' : 'İlan Sahibine Mesaj Gönder'}</span>
                 </button>
 
                 {listing.phone_visibility !== 'hidden' && listing.user_phone && (

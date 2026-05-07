@@ -16,6 +16,7 @@ import 'swiper/css/navigation';
 import './ChatBox.css';
 import { conditionBadgeClass, toCanonicalCondition } from '../../lib/condition';
 import { getExampleListingBadgeUI, isExampleListingOwner } from '../../lib/exampleListing';
+import { isOwnedByViewer, resolveViewerUserId } from '../../lib/listingOwnership';
 import { fetchPublicContactLink } from '../../services/agentApi';
 import { buildListingPath } from '../../lib/seo';
 
@@ -259,6 +260,7 @@ export default function ChatBox() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, customUser } = useAuthStore();
+  const viewerUserId = resolveViewerUserId({ userId: user?.id, customUserId: customUser?.id });
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('listing');
   const [messages, setMessages] = useState<Message[]>([
@@ -929,6 +931,7 @@ export default function ChatBox() {
 
     const exampleUi = getExampleListingBadgeUI();
     const isExampleListing = isExampleListingOwner(detailListing.user_id);
+    const isOwnDetailListing = isOwnedByViewer(viewerUserId, detailListing.user_id);
 
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const imageUrls = detailListing.signed_images?.map((imagePath: string) => {
@@ -940,7 +943,7 @@ export default function ChatBox() {
 
     const handleDetailContact = async () => {
       const listingId = String(detailListing?.id || '').trim();
-      if (!listingId || detailContactLoading) return;
+      if (!listingId || detailContactLoading || isOwnDetailListing) return;
       try {
         setDetailContactLoading(true);
         const path = `/contact/listing/${encodeURIComponent(listingId)}`;
@@ -1047,11 +1050,15 @@ export default function ChatBox() {
             <div className="flex space-x-3">
               <button
                 onClick={() => void handleDetailContact()}
-                disabled={detailContactLoading}
-                className="flex-1 bg-gradient-primary hover:opacity-90 text-white font-semibold py-3 rounded-xl flex items-center justify-center space-x-2 transition-colors disabled:opacity-60"
+                disabled={detailContactLoading || isOwnDetailListing}
+                className={`flex-1 font-semibold py-3 rounded-xl flex items-center justify-center space-x-2 transition-colors disabled:opacity-60 ${
+                  isOwnDetailListing
+                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                    : 'bg-gradient-primary hover:opacity-90 text-white'
+                }`}
               >
                 <i className="ri-message-3-line text-xl" />
-                <span>{detailContactLoading ? 'Hazırlanıyor...' : 'Mesaj Gönder'}</span>
+                <span>{isOwnDetailListing ? 'Sizin ilanınız' : detailContactLoading ? 'Hazırlanıyor...' : 'Mesaj Gönder'}</span>
               </button>
               <button 
                 onClick={() => {
