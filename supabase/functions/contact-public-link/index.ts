@@ -83,6 +83,17 @@ Deno.serve(async (req) => {
   }
 
   const nowIso = new Date().toISOString()
+  const { error: revokeExpiredErr } = await supabase
+    .from('contact_tokens')
+    .update({ revoked: true })
+    .eq('listing_id', listingId)
+    .eq('revoked', false)
+    .lt('expires_at', nowIso)
+
+  if (revokeExpiredErr) {
+    return jsonResponse(500, { success: false, error: 'token_cleanup_failed', detail: revokeExpiredErr.message })
+  }
+
   const { data: existingRows, error: existingErr } = await supabase
     .from('contact_tokens')
     .select('id, token, listing_id, owner_user_id, expires_at, revoked')
