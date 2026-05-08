@@ -12,6 +12,8 @@ import {
 } from '../../../services/agentApi';
 import { supabase } from '../../../lib/supabase';
 
+const MESSAGE_READ_SYNC_EVENT = 'pg:messages-read-sync';
+
 export default function ProfileMessagesPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -27,6 +29,24 @@ export default function ProfileMessagesPage() {
     () => inbox.find((i) => i.id === selectedConversationId) || null,
     [inbox, selectedConversationId],
   );
+
+  const clearUnreadForConversation = (conversationId: string) => {
+    let didClear = false;
+    setInbox((current) => current.map((item) => {
+      if (item.id !== conversationId || Number(item.owner_unread_count || 0) <= 0) {
+        return item;
+      }
+      didClear = true;
+      return {
+        ...item,
+        owner_unread_count: 0,
+      };
+    }));
+
+    if (didClear) {
+      window.dispatchEvent(new Event(MESSAGE_READ_SYNC_EVENT));
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -91,6 +111,7 @@ export default function ProfileMessagesPage() {
         const rows = await fetchOwnerConversationMessages(selectedConversationId, 100);
         if (!mounted) return;
         setMessages(rows);
+        clearUnreadForConversation(selectedConversationId);
       } catch (err) {
         console.error(err);
         if (mounted) setError('Mesajlar yüklenemedi.');
@@ -111,7 +132,10 @@ export default function ProfileMessagesPage() {
     const timer = window.setInterval(async () => {
       try {
         const rows = await fetchOwnerConversationMessages(selectedConversationId, 100);
-        if (mounted) setMessages(rows);
+        if (mounted) {
+          setMessages(rows);
+          clearUnreadForConversation(selectedConversationId);
+        }
       } catch {
         // fail-soft polling
       }

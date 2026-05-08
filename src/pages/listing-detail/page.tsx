@@ -256,6 +256,7 @@ export default function ListingDetailPage() {
   const { id } = useParams<{ id: string; slug?: string }>();
   const { user, customUser } = useAuthStore();
   const [showReport, setShowReport] = useState(false);
+  const [showContactOptions, setShowContactOptions] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [listing, setListing] = useState<ListingDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -461,6 +462,7 @@ export default function ListingDetailPage() {
 
   const handleWhatsAppContact = () => {
     if (listing?.user_phone) {
+      setShowContactOptions(false);
       const message = encodeURIComponent(`Merhaba, "${listing.title}" ilanınız hakkında bilgi almak istiyorum.`);
       window.open(`https://wa.me/${listing.user_phone.replace(/\D/g, '')}?text=${message}`, '_blank');
     }
@@ -468,8 +470,14 @@ export default function ListingDetailPage() {
 
   const handleContactMessage = async () => {
     if (!listing?.id || contactLoading || isOwnedByViewer(viewerUserId, listing.user_id)) return;
+    setShowContactOptions(true);
+  };
+
+  const handleInternalMessageContact = async () => {
+    if (!listing?.id || contactLoading || isOwnedByViewer(viewerUserId, listing.user_id)) return;
     try {
       setContactLoading(true);
+      setShowContactOptions(false);
       navigate(`/contact/listing/${encodeURIComponent(listing.id)}`);
     } catch {
       alert('Mesaj bağlantısı oluşturulamadı. Lütfen tekrar deneyin.');
@@ -514,6 +522,7 @@ export default function ListingDetailPage() {
   const viewerUserId = resolveViewerUserId({ userId: user?.id, customUserId: customUser?.id });
   const isExampleListing = isExampleListingOwner(listing.user_id);
   const isOwnListing = isOwnedByViewer(viewerUserId, listing.user_id);
+  const canContactViaWhatsApp = !isOwnListing && listing.phone_visibility !== 'hidden' && Boolean(listing.user_phone);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
@@ -689,16 +698,6 @@ export default function ListingDetailPage() {
                   <span>{isOwnListing ? 'Sizin ilanınız' : contactLoading ? 'Bağlantı hazırlanıyor...' : 'İlan Sahibine Mesaj Gönder'}</span>
                 </button>
 
-                {listing.phone_visibility !== 'hidden' && listing.user_phone && (
-                  <button
-                    onClick={handleWhatsAppContact}
-                    className="w-full py-4 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all flex items-center justify-center space-x-2 cursor-pointer whitespace-nowrap"
-                  >
-                    <i className="ri-whatsapp-line text-2xl" />
-                    <span>WhatsApp ile İletişime Geç</span>
-                  </button>
-                )}
-
                 <button
                   onClick={() => setShowReport(true)}
                   className="w-full py-3 border border-red-200 text-red-500 hover:bg-red-50 font-medium rounded-xl transition-colors flex items-center justify-center space-x-2 mt-2 text-sm"
@@ -713,6 +712,74 @@ export default function ListingDetailPage() {
       </div>
 
       <AnimatePresence>
+        {showContactOptions && !isOwnListing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
+            onClick={() => setShowContactOptions(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.96 }}
+              className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="mb-4">
+                <h3 className="text-xl font-bold text-gray-900">İletişim Seçenekleri</h3>
+                <p className="mt-1 text-sm text-gray-500">İlan sahibiyle nasıl iletişime geçmek istediğinizi seçin.</p>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => void handleInternalMessageContact()}
+                  className="w-full rounded-2xl border border-teal-200 bg-teal-50 px-4 py-4 text-left transition-colors hover:bg-teal-100"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-teal-600 text-white">
+                      <i className="ri-message-3-line text-xl" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">Site içi mesajlaşma</p>
+                      <p className="text-sm text-gray-600">Mesajınız ilan sahibinin mesaj kutusuna düşer.</p>
+                    </div>
+                  </div>
+                </button>
+
+                {canContactViaWhatsApp ? (
+                  <button
+                    onClick={handleWhatsAppContact}
+                    className="w-full rounded-2xl border border-green-200 bg-green-50 px-4 py-4 text-left transition-colors hover:bg-green-100"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white">
+                        <i className="ri-whatsapp-line text-xl" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">WhatsApp ile mesaj gönder</p>
+                        <p className="text-sm text-gray-600">Satıcının görünür telefon numarasına WhatsApp açılır.</p>
+                      </div>
+                    </div>
+                  </button>
+                ) : (
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
+                    Satıcı telefonunu gizlediği için yalnızca site içi mesajlaşma kullanılabilir.
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => setShowContactOptions(false)}
+                className="mt-4 w-full rounded-2xl bg-gray-100 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-200"
+              >
+                Vazgeç
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+
         {showReport && (
           <ReportModal
             listingId={listing.id}

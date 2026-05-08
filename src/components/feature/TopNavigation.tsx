@@ -4,6 +4,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { fetchOwnerInbox } from '../../services/agentApi';
 
+const MESSAGE_READ_SYNC_EVENT = 'pg:messages-read-sync';
+
 type TopNavigationProps = {
   isScrolled?: boolean;
 };
@@ -60,12 +62,18 @@ export default function TopNavigation({ isScrolled: isScrolledProp }: TopNavigat
     };
 
     void refreshUnread();
+    const handleReadSync = () => {
+      void refreshUnread();
+    };
+
+    window.addEventListener(MESSAGE_READ_SYNC_EVENT, handleReadSync);
     timer = window.setInterval(() => {
       void refreshUnread();
     }, 20000);
 
     return () => {
       mounted = false;
+      window.removeEventListener(MESSAGE_READ_SYNC_EVENT, handleReadSync);
       if (timer) window.clearInterval(timer);
     };
   }, [user]);
