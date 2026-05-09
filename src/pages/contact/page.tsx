@@ -7,20 +7,6 @@ import { isOwnedByViewer, resolveViewerUserId } from '../../lib/listingOwnership
 import { fetchPublicContactLink, resolveContactToken, sendMessageViaContactToken } from '../../services/agentApi';
 import { useAuthStore } from '../../stores/authStore';
 
-const sessionStorageKey = 'pg_contact_sender_session_id';
-
-function getOrCreateSenderSessionId() {
-  try {
-    const existing = localStorage.getItem(sessionStorageKey);
-    if (existing && existing.trim()) return existing;
-    const generated = `sender_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-    localStorage.setItem(sessionStorageKey, generated);
-    return generated;
-  } catch {
-    return `sender_${Date.now()}`;
-  }
-}
-
 export default function ContactPage() {
   const navigate = useNavigate();
   const { token = '', listingId = '' } = useParams<{ token?: string; listingId?: string }>();
@@ -37,11 +23,11 @@ export default function ContactPage() {
   const [sent, setSent] = useState(false);
   const [resolvedToken, setResolvedToken] = useState('');
 
-  const senderSessionId = useMemo(() => getOrCreateSenderSessionId(), []);
   const senderUserId = useMemo(() => {
     const viewerUserId = resolveViewerUserId({ userId: user?.id, customUserId: customUser?.id });
     return viewerUserId || undefined;
   }, [customUser?.id, user?.id]);
+  const isAuthenticated = Boolean(senderUserId);
   const isOwnListingTarget = isOwnedByViewer(senderUserId, ownerUserId);
 
   useEffect(() => {
@@ -100,6 +86,12 @@ export default function ContactPage() {
   }, [token, listingId]);
 
   const handleSend = async () => {
+    if (!senderUserId) {
+      setError('Mesaj göndermek için giriş yapmanız gerekiyor.');
+      navigate('/auth/login');
+      return;
+    }
+
     if (isOwnListingTarget) {
       setError('Kendi ilanınıza mesaj gönderemezsiniz.');
       return;
@@ -118,8 +110,6 @@ export default function ContactPage() {
         token: resolvedToken,
         message: cleanMessage,
         sender_name: senderName.trim() || undefined,
-        sender_session_id: senderSessionId,
-        sender_user_id: senderUserId,
         channel: 'web',
       });
 
@@ -132,7 +122,14 @@ export default function ContactPage() {
     } catch (err) {
       console.error(err);
       const messageText = err instanceof Error ? err.message : 'Mesaj gönderilemedi. Lütfen tekrar deneyin.';
-      setError(messageText.includes('self_contact_not_allowed') ? 'Kendi ilanınıza mesaj gönderemezsiniz.' : 'Mesaj gönderilemedi. Lütfen tekrar deneyin.');
+      const lower = messageText.toLowerCase();
+      if (lower.includes('self_contact_not_allowed')) {
+        setError('Kendi ilanınıza mesaj gönderemezsiniz.');
+      } else if (lower.includes('giriş yapmanız gerekiyor') || lower.includes('unauthorized')) {
+        setError('Mesaj göndermek için giriş yapmanız gerekiyor.');
+      } else {
+        setError('Mesaj gönderilemedi. Lütfen tekrar deneyin.');
+      }
     } finally {
       setSending(false);
     }
@@ -180,6 +177,18 @@ export default function ContactPage() {
                     İlanlarıma Dön
                   </button>
                 </div>
+              ) : !isAuthenticated ? (
+              <div className="space-y-4">
+                <div className="px-4 py-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-sm">
+                  İlan sahibine mesaj göndermek için önce giriş yapmanız gerekiyor.
+                </div>
+                <button
+                  onClick={() => navigate('/auth/login')}
+                  className="w-full py-3 rounded-xl bg-gradient-primary text-white font-semibold hover:shadow-md"
+                >
+                  Giriş Yap
+                </button>
+              </div>
               ) : (
               <div className="space-y-4">
                 <div>

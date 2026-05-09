@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { Listing } from '../../../types/listing';
@@ -6,7 +6,7 @@ import { toCanonicalCondition } from '../../../lib/condition';
 import { getPremiumBadgeUI } from '../../../lib/premiumBadge';
 import { getExampleListingBadgeUI, isExampleListingOwner } from '../../../lib/exampleListing';
 import { isOwnedByViewer, resolveViewerUserId } from '../../../lib/listingOwnership';
-import { fetchPublicContactLink } from '../../../services/agentApi';
+import { fetchPublicContactLink, resolveContactToken } from '../../../services/agentApi';
 import { buildListingPath } from '../../../lib/seo';
 import { useAuthStore } from '../../../stores/authStore';
 
@@ -98,6 +98,12 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
   const viewerUserId = resolveViewerUserId({ userId: user?.id, customUserId: customUser?.id });
   const isOwnListing = isOwnedByViewer(viewerUserId, listing.userId);
   const listingPath = buildListingPath(listing.id, listing.title);
+  const fallbackContactPath = `/contact/listing/${encodeURIComponent(listing.id)}`;
+  const [contactOptionsOpen, setContactOptionsOpen] = useState(false);
+  const [contactPreparing, setContactPreparing] = useState(false);
+  const [contactPath, setContactPath] = useState('');
+  const [contactOwnerPhone, setContactOwnerPhone] = useState('');
+  const [contactPhoneVisibility, setContactPhoneVisibility] = useState<'public' | 'hidden'>('hidden');
 
   const formatDate = (date: string) => {
     const now = new Date();
@@ -119,23 +125,147 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
 
   const handleContactClick = async (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
-    if (isOwnListing) return;
+    if (isOwnListing || contactPreparing) return;
+
+    setContactPath(fallbackContactPath);
+    setContactOwnerPhone('');
+    setContactPhoneVisibility('hidden');
+    setContactOptionsOpen(true);
 
     try {
+      setContactPreparing(true);
       const res = await fetchPublicContactLink(listing.id);
       const path = res?.data?.contact_path;
+      const token = res?.data?.token;
+
       if (path) {
-        navigate(path);
-        return;
+        setContactPath(path);
       }
-      alert('Mesaj linki şu an oluşturulamadı.');
+
+      if (token) {
+        let ownerPhone = '';
+        let phoneVisibility: 'public' | 'hidden' = 'hidden';
+        try {
+          const resolved = await resolveContactToken(token);
+          ownerPhone = String(resolved?.data?.listing?.owner_phone || '').trim();
+          const visibility = String(resolved?.data?.listing?.phone_visibility || 'hidden').trim().toLowerCase();
+          phoneVisibility = visibility === 'public' ? 'public' : 'hidden';
+        } catch {
+          ownerPhone = '';
+          phoneVisibility = 'hidden';
+        }
+
+        setContactOwnerPhone(ownerPhone);
+        setContactPhoneVisibility(phoneVisibility);
+      }
     } catch {
-      alert('Mesaj linki hazırlanamadı. Lütfen tekrar deneyin.');
+      // Fail-safe: modal stays open with internal messaging path.
+    } finally {
+      setContactPreparing(false);
     }
   };
 
+  const handleInternalMessageOption = () => {
+    setContactOptionsOpen(false);
+    navigate(contactPath || fallbackContactPath);
+  };
+
+  const handleWhatsAppOption = () => {
+    if (!viewerUserId) {
+      setContactOptionsOpen(false);
+      navigate('/auth/login');
+      return;
+    }
+    if (contactPhoneVisibility === 'hidden' || !contactOwnerPhone) return;
+    const message = encodeURIComponent(`Merhaba, "${listing.title}" ilanınız hakkında bilgi almak istiyorum.`);
+    setContactOptionsOpen(false);
+    window.open(`https://wa.me/${contactOwnerPhone.replace(/\D/g, '')}?text=${message}`, '_blank');
+  };
+
+  const needsLoginForWhatsApp = !viewerUserId;
+  const canContactViaWhatsApp = !needsLoginForWhatsApp && contactPhoneVisibility !== 'hidden' && Boolean(contactOwnerPhone);
+
+  const contactOptionsModal = (
+    <AnimatePresence>
+      {contactOptionsOpen && !isOwnListing && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4"
+          onClick={() => setContactOptionsOpen(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.96 }}
+            className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-gray-900">İletişim Seçenekleri</h3>
+              <p className="mt-1 text-sm text-gray-500">İlan sahibiyle nasıl iletişime geçmek istediğinizi seçin.</p>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={handleInternalMessageOption}
+                className="w-full rounded-2xl border border-teal-200 bg-teal-50 px-4 py-4 text-left transition-colors hover:bg-teal-100"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-teal-600 text-white">
+                    <i className="ri-message-3-line text-xl" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">Site içi mesajlaşma</p>
+                    <p className="text-sm text-gray-600">Mesajınız ilan sahibinin mesaj kutusuna düşer.</p>
+                  </div>
+                </div>
+              </button>
+
+              {canContactViaWhatsApp ? (
+                <button
+                  onClick={handleWhatsAppOption}
+                  className="w-full rounded-2xl border border-green-200 bg-green-50 px-4 py-4 text-left transition-colors hover:bg-green-100"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white">
+                      <i className="ri-whatsapp-line text-xl" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">WhatsApp ile mesaj gönder</p>
+                      <p className="text-sm text-gray-600">Satıcının görünür telefon numarasına WhatsApp açılır.</p>
+                    </div>
+                  </div>
+                </button>
+              ) : (
+                needsLoginForWhatsApp ? (
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4 text-sm text-blue-800">
+                    WhatsApp ile iletişim için önce giriş yapmanız gerekiyor.
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
+                    Satıcı telefonunu gizlediği için yalnızca site içi mesajlaşma kullanılabilir.
+                  </div>
+                )
+              )}
+            </div>
+
+            <button
+              onClick={() => setContactOptionsOpen(false)}
+              className="mt-4 w-full rounded-2xl bg-gray-100 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-200"
+            >
+              Vazgeç
+            </button>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   if (viewMode === 'list') {
     return (
+      <>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -226,23 +356,26 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
               <button
                 type="button"
                 onClick={(event) => void handleContactClick(event)}
-                disabled={isOwnListing}
+                disabled={isOwnListing || contactPreparing}
                 className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
-                  isOwnListing
+                  isOwnListing || contactPreparing
                     ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                     : 'bg-gradient-primary text-white hover:shadow-md'
                 }`}
               >
-                {isOwnListing ? 'Sizin ilanınız' : 'İlan Sahibine Mesaj Gönder'}
+                {isOwnListing ? 'Sizin ilanınız' : contactPreparing ? 'Hazırlanıyor...' : 'İlan Sahibine Mesaj Gönder'}
               </button>
             </div>
           </div>
         </div>
       </motion.div>
+      {contactOptionsModal}
+      </>
     );
   }
 
   return (
+    <>
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -323,17 +456,19 @@ export default function ListingCard({ listing, viewMode, index }: ListingCardPro
           <button
             type="button"
             onClick={(event) => void handleContactClick(event)}
-            disabled={isOwnListing}
+            disabled={isOwnListing || contactPreparing}
             className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
-              isOwnListing
+              isOwnListing || contactPreparing
                 ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                 : 'bg-gradient-primary text-white hover:shadow-md'
             }`}
           >
-            {isOwnListing ? 'Sizin ilanınız' : 'Mesaj Gönder'}
+            {isOwnListing ? 'Sizin ilanınız' : contactPreparing ? 'Hazırlanıyor...' : 'Mesaj Gönder'}
           </button>
         </div>
       </div>
     </motion.div>
+    {contactOptionsModal}
+    </>
   );
 }

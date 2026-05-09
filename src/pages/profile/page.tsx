@@ -101,6 +101,46 @@ export default function ProfilePage() {
 
       if (updateError) throw updateError;
 
+      // Keep listings in sync with profile visibility so listing-detail UI can use
+      // a single deterministic condition for WhatsApp option visibility.
+      let profilePhone = '';
+      let profileNameVisibility: 'public' | 'hidden' = 'public';
+
+      try {
+        const { data: refreshedProfile } = await supabase
+          .from('profiles')
+          .select('phone, display_name, full_name, phone_visibility, name_visibility')
+          .eq('id', user.id)
+          .single();
+
+        if (refreshedProfile) {
+          profilePhone = String(refreshedProfile.phone || '').trim();
+          profileNameVisibility = refreshedProfile.name_visibility === 'hidden' ? 'hidden' : 'public';
+        }
+      } catch (syncReadErr) {
+        console.warn('Profil eşitleme için güncel profil okunamadı:', syncReadErr);
+      }
+
+      const syncedDisplayName = String(profileData.display_name || profileData.full_name || '').trim() || 'Satıcı';
+      const listingsUpdatePayload: Record<string, any> = {
+        phone_visibility: profileData.phone_visibility,
+        name_visibility: profileNameVisibility,
+        user_name: syncedDisplayName,
+      };
+
+      if (profilePhone) {
+        listingsUpdatePayload.user_phone = profilePhone;
+      }
+
+      const { error: listingsSyncError } = await supabase
+        .from('listings')
+        .update(listingsUpdatePayload)
+        .eq('user_id', user.id);
+
+      if (listingsSyncError) {
+        console.warn('İlan görünürlük eşitlemesi başarısız:', listingsSyncError);
+      }
+
       setSuccess('Profil bilgileriniz güncellendi!');
     } catch (err: any) {
       setError(err.message || 'Profil güncellenirken hata oluştu');

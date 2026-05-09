@@ -76,7 +76,7 @@ export default function TopNavigation({ isScrolled: isScrolledProp }: TopNavigat
       window.removeEventListener(MESSAGE_READ_SYNC_EVENT, handleReadSync);
       if (timer) window.clearInterval(timer);
     };
-  }, [user]);
+  }, [user, location.pathname]);
 
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();

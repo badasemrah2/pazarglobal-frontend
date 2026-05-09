@@ -48,6 +48,18 @@ export default function ProfileMessagesPage() {
     }
   };
 
+  const normalizeInboxForOpenConversation = (rows: OwnerInboxItem[]) => {
+    if (!selectedConversationId) {
+      return rows;
+    }
+
+    return rows.map((item) => (
+      item.id === selectedConversationId
+        ? { ...item, owner_unread_count: 0 }
+        : item
+    ));
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -86,7 +98,10 @@ export default function ProfileMessagesPage() {
     const timer = window.setInterval(async () => {
       try {
         const rows = await fetchOwnerInbox(50);
-        if (mounted) setInbox(rows);
+        if (mounted) {
+          setInbox(normalizeInboxForOpenConversation(rows));
+          window.dispatchEvent(new Event(MESSAGE_READ_SYNC_EVENT));
+        }
       } catch {
         // fail-soft polling
       }
@@ -96,7 +111,7 @@ export default function ProfileMessagesPage() {
       mounted = false;
       window.clearInterval(timer);
     };
-  }, [loading]);
+  }, [loading, selectedConversationId]);
 
   useEffect(() => {
     let mounted = true;
@@ -112,6 +127,11 @@ export default function ProfileMessagesPage() {
         if (!mounted) return;
         setMessages(rows);
         clearUnreadForConversation(selectedConversationId);
+
+        const refreshedInbox = await fetchOwnerInbox(50);
+        if (!mounted) return;
+        setInbox(normalizeInboxForOpenConversation(refreshedInbox));
+        window.dispatchEvent(new Event(MESSAGE_READ_SYNC_EVENT));
       } catch (err) {
         console.error(err);
         if (mounted) setError('Mesajlar yüklenemedi.');
@@ -135,6 +155,7 @@ export default function ProfileMessagesPage() {
         if (mounted) {
           setMessages(rows);
           clearUnreadForConversation(selectedConversationId);
+          window.dispatchEvent(new Event(MESSAGE_READ_SYNC_EVENT));
         }
       } catch {
         // fail-soft polling
@@ -163,7 +184,8 @@ export default function ProfileMessagesPage() {
       const rows = await fetchOwnerConversationMessages(selectedConversationId, 100);
       setMessages(rows);
       const refreshedInbox = await fetchOwnerInbox(50);
-      setInbox(refreshedInbox);
+      setInbox(normalizeInboxForOpenConversation(refreshedInbox));
+      window.dispatchEvent(new Event(MESSAGE_READ_SYNC_EVENT));
     } catch (err) {
       console.error(err);
       setError('Yanıt gönderilemedi.');

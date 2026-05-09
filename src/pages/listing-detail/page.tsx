@@ -11,6 +11,7 @@ import { getExampleListingBadgeUI, isExampleListingOwner } from '../../lib/examp
 import { isOwnedByViewer, resolveViewerUserId } from '../../lib/listingOwnership';
 import { getPremiumBadgeUI } from '../../lib/premiumBadge';
 import { buildCanonicalUrl, buildListingPath, PREFERRED_ORIGIN } from '../../lib/seo';
+import { fetchPublicContactLink, resolveContactToken } from '../../services/agentApi';
 import { useAuthStore } from '../../stores/authStore';
 
 // ── Report Modal ─────────────────────────────────────────────────────────────
@@ -261,6 +262,9 @@ export default function ListingDetailPage() {
   const [listing, setListing] = useState<ListingDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [contactLoading, setContactLoading] = useState(false);
+  const [contactPath, setContactPath] = useState('');
+  const [contactOwnerPhone, setContactOwnerPhone] = useState('');
+  const [contactPhoneVisibility, setContactPhoneVisibility] = useState<'public' | 'hidden'>('hidden');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const exampleUi = getExampleListingBadgeUI();
 
@@ -461,16 +465,59 @@ export default function ListingDetailPage() {
   };
 
   const handleWhatsAppContact = () => {
-    if (listing?.user_phone) {
+    if (!viewerUserId) {
       setShowContactOptions(false);
-      const message = encodeURIComponent(`Merhaba, "${listing.title}" ilanınız hakkında bilgi almak istiyorum.`);
-      window.open(`https://wa.me/${listing.user_phone.replace(/\D/g, '')}?text=${message}`, '_blank');
+      navigate('/auth/login');
+      return;
+    }
+
+    if (contactPhoneVisibility !== 'hidden' && contactOwnerPhone) {
+      setShowContactOptions(false);
+      const message = encodeURIComponent(`Merhaba, "${listing?.title || 'ilan'}" ilanınız hakkında bilgi almak istiyorum.`);
+      window.open(`https://wa.me/${contactOwnerPhone.replace(/\D/g, '')}?text=${message}`, '_blank');
     }
   };
 
   const handleContactMessage = async () => {
     if (!listing?.id || contactLoading || isOwnedByViewer(viewerUserId, listing.user_id)) return;
+    const fallbackPath = `/contact/listing/${encodeURIComponent(listing.id)}`;
+
+    setContactPath(fallbackPath);
+    setContactOwnerPhone(String(listing.user_phone || '').trim());
+    setContactPhoneVisibility(listing.phone_visibility === 'public' ? 'public' : 'hidden');
     setShowContactOptions(true);
+
+    try {
+      setContactLoading(true);
+      const res = await fetchPublicContactLink(listing.id);
+      const path = res?.data?.contact_path;
+      const token = res?.data?.token;
+
+      if (path) {
+        setContactPath(path);
+      }
+
+      if (token) {
+        let ownerPhone = String(listing.user_phone || '').trim();
+        let phoneVisibility: 'public' | 'hidden' = listing.phone_visibility === 'public' ? 'public' : 'hidden';
+
+        try {
+          const resolved = await resolveContactToken(token);
+          ownerPhone = String(resolved?.data?.listing?.owner_phone || ownerPhone || '').trim();
+          const resolvedVisibility = String(resolved?.data?.listing?.phone_visibility || phoneVisibility).trim().toLowerCase();
+          phoneVisibility = resolvedVisibility === 'public' ? 'public' : 'hidden';
+        } catch {
+          // Keep listing-level fallback values when resolve call fails.
+        }
+
+        setContactOwnerPhone(ownerPhone);
+        setContactPhoneVisibility(phoneVisibility);
+      }
+    } catch {
+      // Fail-safe: modal remains open with internal messaging fallback path.
+    } finally {
+      setContactLoading(false);
+    }
   };
 
   const handleInternalMessageContact = async () => {
@@ -478,7 +525,7 @@ export default function ListingDetailPage() {
     try {
       setContactLoading(true);
       setShowContactOptions(false);
-      navigate(`/contact/listing/${encodeURIComponent(listing.id)}`);
+      navigate(contactPath || `/contact/listing/${encodeURIComponent(listing.id)}`);
     } catch {
       alert('Mesaj bağlantısı oluşturulamadı. Lütfen tekrar deneyin.');
     } finally {
@@ -522,7 +569,8 @@ export default function ListingDetailPage() {
   const viewerUserId = resolveViewerUserId({ userId: user?.id, customUserId: customUser?.id });
   const isExampleListing = isExampleListingOwner(listing.user_id);
   const isOwnListing = isOwnedByViewer(viewerUserId, listing.user_id);
-  const canContactViaWhatsApp = !isOwnListing && listing.phone_visibility !== 'hidden' && Boolean(listing.user_phone);
+  const needsLoginForWhatsApp = !viewerUserId;
+  const canContactViaWhatsApp = !isOwnListing && !needsLoginForWhatsApp && contactPhoneVisibility !== 'hidden' && Boolean(contactOwnerPhone);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
@@ -764,9 +812,15 @@ export default function ListingDetailPage() {
                     </div>
                   </button>
                 ) : (
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
-                    Satıcı telefonunu gizlediği için yalnızca site içi mesajlaşma kullanılabilir.
-                  </div>
+                  needsLoginForWhatsApp ? (
+                    <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4 text-sm text-blue-800">
+                      WhatsApp ile iletişim için önce giriş yapmanız gerekiyor.
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
+                      Satıcı telefonunu gizlediği için yalnızca site içi mesajlaşma kullanılabilir.
+                    </div>
+                  )
                 )}
               </div>
 

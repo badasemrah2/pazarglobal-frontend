@@ -136,16 +136,30 @@ export const sendMessageViaContactToken = async (payload: {
   sender_user_id?: string;
   channel?: string;
 }): Promise<{ success: boolean; data?: { conversation_id: string; message_id: string; listing_id: string } }> => {
-  const response = await fetchWithPathFallback([
-    '/api/v3/contact/send',
-    '/contact/send',
-  ], {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
+  let response: Response;
+  try {
+    response = await fetchWithAuthRetry([
+      '/api/v3/contact/send',
+      '/contact/send',
+    ], {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '';
+    if (message.includes('Giriş oturumu bulunamadı')) {
+      throw new Error('Mesaj göndermek için giriş yapmanız gerekiyor.');
+    }
+    throw err;
+  }
+
+  if (response.status === 401) {
+    throw new Error('Mesaj göndermek için giriş yapmanız gerekiyor.');
+  }
+
   if (!response.ok) {
     let detail = '';
     try {

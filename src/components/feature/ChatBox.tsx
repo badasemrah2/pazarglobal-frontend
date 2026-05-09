@@ -17,7 +17,7 @@ import './ChatBox.css';
 import { conditionBadgeClass, toCanonicalCondition } from '../../lib/condition';
 import { getExampleListingBadgeUI, isExampleListingOwner } from '../../lib/exampleListing';
 import { isOwnedByViewer, resolveViewerUserId } from '../../lib/listingOwnership';
-import { fetchPublicContactLink } from '../../services/agentApi';
+import { fetchPublicContactLink, resolveContactToken } from '../../services/agentApi';
 import { buildListingPath } from '../../lib/seo';
 
 type Message = {
@@ -279,6 +279,10 @@ export default function ChatBox() {
   const [displayCount, setDisplayCount] = useState(3);
   const [detailListing, setDetailListing] = useState<any>(null);
   const [detailContactLoading, setDetailContactLoading] = useState(false);
+  const [showDetailContactOptions, setShowDetailContactOptions] = useState(false);
+  const [detailContactPath, setDetailContactPath] = useState('');
+  const [detailContactOwnerPhone, setDetailContactOwnerPhone] = useState('');
+  const [detailContactPhoneVisibility, setDetailContactPhoneVisibility] = useState<'public' | 'hidden'>('hidden');
   const [voiceMode, setVoiceMode] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -944,18 +948,71 @@ export default function ChatBox() {
     const handleDetailContact = async () => {
       const listingId = String(detailListing?.id || '').trim();
       if (!listingId || detailContactLoading || isOwnDetailListing) return;
+      const fallbackPath = `/contact/listing/${encodeURIComponent(listingId)}`;
+
+      setDetailContactPath(fallbackPath);
+      setDetailContactOwnerPhone(String(detailListing?.user_phone || '').trim());
+      setDetailContactPhoneVisibility(
+        String(detailListing?.phone_visibility || '').trim().toLowerCase() === 'public' ? 'public' : 'hidden'
+      );
+      setShowDetailContactOptions(true);
+
       try {
         setDetailContactLoading(true);
-        const path = `/contact/listing/${encodeURIComponent(listingId)}`;
-        setDetailListing(null);
-        setIsOpen(false);
-        navigate(path);
+        const res = await fetchPublicContactLink(listingId);
+        const path = res?.data?.contact_path;
+        const token = res?.data?.token;
+
+        if (path) {
+          setDetailContactPath(path);
+        }
+
+        if (token) {
+          let ownerPhone = String(detailListing?.user_phone || '').trim();
+          let phoneVisibility: 'public' | 'hidden' =
+            String(detailListing?.phone_visibility || '').trim().toLowerCase() === 'public' ? 'public' : 'hidden';
+          try {
+            const resolved = await resolveContactToken(token);
+            ownerPhone = String(resolved?.data?.listing?.owner_phone || ownerPhone || '').trim();
+            const visibility = String(resolved?.data?.listing?.phone_visibility || phoneVisibility).trim().toLowerCase();
+            phoneVisibility = visibility === 'public' ? 'public' : 'hidden';
+          } catch {
+            // Keep fallback values.
+          }
+
+          setDetailContactOwnerPhone(ownerPhone);
+          setDetailContactPhoneVisibility(phoneVisibility);
+        }
       } catch {
-        alert('Mesaj bağlantısı oluşturulamadı. Lütfen tekrar deneyin.');
+        // Fail-safe: modal stays open with internal messaging fallback path.
       } finally {
         setDetailContactLoading(false);
       }
     };
+
+    const handleDetailInternalMessageOption = () => {
+      setShowDetailContactOptions(false);
+      setDetailListing(null);
+      setIsOpen(false);
+      navigate(detailContactPath || `/contact/listing/${encodeURIComponent(String(detailListing?.id || ''))}`);
+    };
+
+    const handleDetailWhatsAppOption = () => {
+      if (!viewerUserId) {
+        setShowDetailContactOptions(false);
+        setIsOpen(false);
+        navigate('/auth/login');
+        return;
+      }
+
+      if (detailContactPhoneVisibility === 'hidden' || !detailContactOwnerPhone) return;
+      const message = encodeURIComponent(`Merhaba, "${detailListing?.title || 'ilan'}" hakkında bilgi almak istiyorum.`);
+      setShowDetailContactOptions(false);
+      window.open(`https://wa.me/${detailContactOwnerPhone.replace(/\D/g, '')}?text=${message}`, '_blank');
+    };
+
+    const needsLoginForWhatsApp = !viewerUserId;
+    const canContactViaWhatsApp = !needsLoginForWhatsApp && detailContactPhoneVisibility !== 'hidden' && Boolean(detailContactOwnerPhone);
 
     return (
       <motion.div
@@ -963,7 +1020,10 @@ export default function ChatBox() {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="modal-overlay"
-        onClick={() => setDetailListing(null)}
+        onClick={() => {
+          setDetailListing(null);
+          setShowDetailContactOptions(false);
+        }}
       >
         <motion.div
           initial={{ scale: 0.9, y: 20 }}
@@ -989,7 +1049,10 @@ export default function ChatBox() {
               </Swiper>
               
               <button
-                onClick={() => setDetailListing(null)}
+                onClick={() => {
+                  setDetailListing(null);
+                  setShowDetailContactOptions(false);
+                }}
                 className="absolute top-4 right-4 z-10 w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors"
                 aria-label="Modal'ı kapat"
                 title="Kapat"
@@ -1064,6 +1127,7 @@ export default function ChatBox() {
                 onClick={() => {
                   navigate(buildListingPath(detailListing.id, detailListing.title));
                   setDetailListing(null);
+                  setShowDetailContactOptions(false);
                   setIsOpen(false);
                 }}
                 className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-xl flex items-center justify-center space-x-2 transition-colors"
@@ -1086,6 +1150,68 @@ export default function ChatBox() {
                 <i className="ri-share-line text-xl" />
               </button>
             </div>
+
+            {showDetailContactOptions && !isOwnDetailListing && (
+              <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4" onClick={() => setShowDetailContactOptions(false)}>
+                <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                  <div className="mb-4">
+                    <h3 className="text-xl font-bold text-gray-900">İletişim Seçenekleri</h3>
+                    <p className="mt-1 text-sm text-gray-500">İlan sahibiyle nasıl iletişime geçmek istediğinizi seçin.</p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <button
+                      onClick={handleDetailInternalMessageOption}
+                      className="w-full rounded-2xl border border-teal-200 bg-teal-50 px-4 py-4 text-left transition-colors hover:bg-teal-100"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-teal-600 text-white">
+                          <i className="ri-message-3-line text-xl" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">Site içi mesajlaşma</p>
+                          <p className="text-sm text-gray-600">Mesajınız ilan sahibinin mesaj kutusuna düşer.</p>
+                        </div>
+                      </div>
+                    </button>
+
+                    {canContactViaWhatsApp ? (
+                      <button
+                        onClick={handleDetailWhatsAppOption}
+                        className="w-full rounded-2xl border border-green-200 bg-green-50 px-4 py-4 text-left transition-colors hover:bg-green-100"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white">
+                            <i className="ri-whatsapp-line text-xl" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">WhatsApp ile mesaj gönder</p>
+                            <p className="text-sm text-gray-600">Satıcının görünür telefon numarasına WhatsApp açılır.</p>
+                          </div>
+                        </div>
+                      </button>
+                    ) : (
+                      needsLoginForWhatsApp ? (
+                        <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4 text-sm text-blue-800">
+                          WhatsApp ile iletişim için önce giriş yapmanız gerekiyor.
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
+                          Satıcı telefonunu gizlediği için yalnızca site içi mesajlaşma kullanılabilir.
+                        </div>
+                      )
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => setShowDetailContactOptions(false)}
+                    className="mt-4 w-full rounded-2xl bg-gray-100 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-200"
+                  >
+                    Vazgeç
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </motion.div>
       </motion.div>
