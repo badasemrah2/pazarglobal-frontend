@@ -123,9 +123,9 @@ function getCategoryProfile(category: string): CategoryProfile {
       descriptionFramework: `1. SPEC ÖZET: En önemli 3-4 teknik özellik (depolama, RAM, işlemci vb.)
 2. DURUM: Ekran, kasa, batarya sağlığı — dürüst ve net
 3. AKSESUAR & GARANTİ: Kutu, şarj aleti, kılıf, garanti durumu
-4. KAPANIŞ: Fiyat sabit/pazarlık + teslimat notu`,
+4. EK NOT: Yalnızca kullanıcı verdiyse kısa satış notu`,
       descriptionRules: [
-        'Batarya sağlığı veya genel durum mutlaka belirt',
+        'Batarya sağlığı veya genel durum bilgisi varsa belirt',
         'Ekranda çizik/kırık varsa açıkça yaz',
         '"Sıfır gibi" ifadesi kullanma, somut durum yaz (örn: "ekranda çizik yok, kasa temiz")',
         'Aksesuar listesi kısa ve net olsun',
@@ -136,7 +136,7 @@ function getCategoryProfile(category: string): CategoryProfile {
 1. Model ve kritik spec (depolama, RAM, işlemci) → ilk cümle
 2. Fiziksel ve batarya durumu → ikinci blok
 3. Aksesuar/kutu bilgisi → üçüncü blok
-4. Fiyat tutumu + teslimat → kapanış`,
+    4. Kullanıcının verdiği ek not → varsa sona`,
       improveRules: [
         '"Sıfır gibi" ifadesini somut durumla değiştir (örn: "ekranda çizik yok, kasa temiz")',
         'Batarya sağlığı % olarak geçiyorsa koru ve öne al',
@@ -176,16 +176,16 @@ function getCategoryProfile(category: string): CategoryProfile {
       titlePattern: '[Marka/Tür] [Ürün Adı] - [Beden/Renk/Boyut veya durum]',
       titleExample:
         cat === 'Moda & Aksesuar'
-          ? 'Zara Oversize Keten Gömlek - L Beden, Sadece 1 Kez Giyildi'
+          ? 'Zara Oversize Keten Gömlek - L Beden, Bej'
           : cat === 'Spor & Outdoor'
           ? 'Nike Air Max 270 - 42 Numara, Az Kullanılmış'
           : 'IKEA Billy Kitaplık - Beyaz, Demonte, Eksiksiz',
       descriptionFramework: `1. ÜRÜN TANIMI: Ne olduğu, markası, modeli (1 cümle)
-2. DURUM: Kaç kez kullanıldı, gözle görülür hasar/leke var mı
+2. DURUM: Kullanım veya görünür kusur bilgisi varsa kısa ve somut belirt
 3. DETAY: Beden, renk, ölçü, malzeme (kategoriye göre)
-4. KAPANIŞ: Teslimat/kargo bilgisi + pazarlık notu`,
+4. EK NOT: Yalnızca kullanıcı verdiyse kısa kapanış veya kullanım notu`,
       descriptionRules: [
-        'Durum bilgisi (az kullanılmış / 1 kez kullanıldı / hiç kullanılmadı) mutlaka belirt',
+        'Durum veya kullanım bilgisi sadece kullanıcı verdiyse belirt',
         'Görünür bir kusur varsa açıkça yaz, gizleme',
         'Beden/ölçü/renk bilgisini net ver',
         ...(cat === 'Anne, Bebek & Oyuncak' ? ['Hijyen ve güvenlik durumunu vurgula'] : ['Marka biliniyorsa başa yakın konumlandır']),
@@ -196,17 +196,17 @@ function getCategoryProfile(category: string): CategoryProfile {
 1. Ürün tanımı ve marka → kısa ve net aç
 2. Kullanım durumu → dürüstçe ve somut belirt
 3. Beden/renk/ölçü detayı → kaybetme
-4. Teslimat veya teslim şekli → sona`,
+4. Kullanıcının verdiği ek not → varsa sona`,
       improveRules: [
-        'Kullanım sayısı veya durumu varsa öne al ("1 kez kullanıldı" gibi)',
+        'Kullanıcının verdiği kullanım/durum bilgisi varsa koru, yoksa ekleme',
         'Görünür kusur varsa yumuşatma, olduğu gibi bırak',
         'Beden/numara bilgisi geçiyorsa vurgula',
         ...(cat === 'Anne, Bebek & Oyuncak' ? ['Hijyen ve güvenlik vurgusunu koru'] : []),
-        '"Az kullanıldı" gibi muğlak ifadeleri somutlaştır',
+        'Muğlak yeni sıfat ekleme; yalnızca mevcut bilgiyi sadeleştir',
         'Max 550 karakter',
       ],
       toneKeywords: [subTone],
-      emojiStyle: 'Uygun 1 emoji — bölüm ayracı olarak (✅ 🔹 📦)',
+      emojiStyle: 'Uygun 1 emoji — bölüm ayracı olarak (✅ 🔹)',
     };
   }
 
@@ -302,9 +302,9 @@ function getCategoryProfile(category: string): CategoryProfile {
     descriptionFramework: `1. ÜRÜN: Ne olduğu, markası
 2. DURUM: Kullanım durumu, gözle görülür kusur var mı
 3. DETAY: Öne çıkan özellikler
-4. KAPANIŞ: Teslimat/pazarlık notu`,
+4. EK NOT: Kullanıcının verdiği kısa not varsa ekle`,
     descriptionRules: [
-      'Durum bilgisi mutlaka belirt',
+      'Durum bilgisi varsa belirt',
       'Bilgi uydurma',
       'İletişim bilgisi ekleme',
       'Max 550 karakter',
@@ -312,7 +312,7 @@ function getCategoryProfile(category: string): CategoryProfile {
     improveFramework: `Mevcut metni şu sıraya göre yeniden düzenle:
 1. Ürün ve durum → öne al
 2. Detaylar → kısa ve net
-3. Kapanış → pazarlık/teslimat notu`,
+3. Kullanıcının verdiği ek not → varsa sona`,
     improveRules: [
       'Mevcut bilgileri koru, yeni bilgi uydurma',
       'Abartılı sıfatları kaldır',
@@ -364,6 +364,8 @@ serve(async (req: Request) => {
     let expectsJsonResult = false;
     let maxTokens = 500;
     let temperature = 0.65;
+
+    systemPrompt += ` Kullanıcının açıkça vermediği hiçbir detayı ekleme. Özellikle teslimat/kargo şekli, pazarlık, kullanım sayısı, hasar, kondisyonu güçlendiren yorumlar, kutu/garanti/sertifika, yıl ve benzeri bilgileri uydurma. "Görsel 1", "Durum", "Öne çıkan özellikler" gibi ham görsel etiketlerini aynen yazma; gerekiyorsa bunları doğal Türkçe cümleye dönüştür.`;
 
     const inferSynonyms = (input: { category?: string; title?: string; description?: string }): string[] => {
       const categoryLc = (input.category || '').toLowerCase();
@@ -526,7 +528,12 @@ Kurallar:
 ${profile.descriptionRules.map((r) => `- ${r}`).join('\n')}
 
 Emoji stili: ${profile.emojiStyle}
-Ton: ${profile.toneKeywords.join(', ')}`;
+Ton: ${profile.toneKeywords.join(', ')}
+
+Ek güvenlik kuralları:
+- Kullanıcının vermediği teslimat/kargo, pazarlık, kullanım sayısı, kondisyon, kutu/garanti/sertifika veya yıl bilgisini ekleme
+- "Görsel 1", "Durum", "Öne çıkan özellikler" gibi ham etiketleri aynen kullanma; doğal cümleye çevir
+- Sadece açıklamayı döndür`;
         break;
       }
 
@@ -559,6 +566,8 @@ ${profile.improveRules.map((r) => `- ${r}`).join('\n')}
 
 Genel kurallar:
 - Mevcut bilgileri koru, bilgi uydurma
+- Kullanıcının vermediği teslimat/kargo, pazarlık, kullanım sayısı, kondisyon, kutu/garanti/sertifika veya yıl bilgisini ekleme
+- "Görsel 1", "Durum", "Öne çıkan özellikler" gibi ham etiketleri aynen kullanma; gerekiyorsa doğal cümleye dönüştür
 - Emoji stili: ${profile.emojiStyle}
 - Ton: ${profile.toneKeywords.join(', ')}
 - İletişim bilgisi/telefon ekleme
