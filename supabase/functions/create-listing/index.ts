@@ -58,6 +58,12 @@ function fileNameFromPath(path: string): string | null {
   return parts.length ? parts[parts.length - 1] : null;
 }
 
+function isVideoPath(path: string): boolean {
+  const trimmed = (path || '').trim();
+  if (!trimmed) return false;
+  return trimmed.startsWith('data:video/') || /\.(mp4|webm|ogg|mov|m4v|avi|mkv)(?:$|[?#])/i.test(trimmed);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -223,10 +229,10 @@ serve(async (req) => {
 
       finalImagePaths = moved;
 
-      // Compute public URL for first image
-      const first = finalImagePaths[0];
-      if (first) {
-        primaryImageUrl = `${supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/public/${bucket}/${first}`;
+      // Compute public URL for the first non-video asset so image-only surfaces keep a valid cover.
+      const firstImage = finalImagePaths.find((path) => !isVideoPath(path));
+      if (firstImage) {
+        primaryImageUrl = `${supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/public/${bucket}/${firstImage}`;
       }
 
       // Update listing with final image paths + primary URL

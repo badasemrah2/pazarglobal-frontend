@@ -9,6 +9,130 @@ import type { DBListing } from '../../../services/supabase';
 import { buildListingPath } from '../../../lib/seo';
 
 const CONDITIONS: Array<ReturnType<typeof toCanonicalCondition>> = ['Sıfır', '2. El', 'Az Kullanılmış'];
+const PRODUCT_IMAGES_BUCKET = 'product-images';
+const PRODUCT_IMAGES_PUBLIC_SEGMENT = '/storage/v1/object/public/product-images/';
+const SUPPORTED_IMAGE_FORMATS = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const MAX_MEDIA_ITEMS = 10;
+const MAX_TOTAL_UPLOAD_BYTES = 50 * 1024 * 1024;
+const MAX_IMAGE_SIZE_MB = 0.9;
+const VIDEO_FILE_PATTERN = /\.(mp4|webm|ogg|mov|m4v|avi|mkv)(?:$|[?#])/i;
+
+type UploadedMediaItem = {
+  file: File;
+  previewUrl: string;
+  kind: 'image' | 'video';
+};
+
+const formatMegabytes = (bytes: number): string => `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+
+const isVideoAsset = (value?: string | null) => {
+  if (!value) return false;
+  return value.startsWith('data:video/') || VIDEO_FILE_PATTERN.test(value);
+};
+
+const normalizeStoragePath = (value?: string | null) => {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) return '';
+
+  const withoutQuery = trimmed.split('?')[0];
+  const markerIndex = withoutQuery.indexOf(PRODUCT_IMAGES_PUBLIC_SEGMENT);
+  if (markerIndex >= 0) {
+    return withoutQuery.slice(markerIndex + PRODUCT_IMAGES_PUBLIC_SEGMENT.length).replace(/^\/+/, '');
+  }
+
+  if (/^https?:\/\//i.test(withoutQuery)) {
+    return '';
+  }
+
+  return withoutQuery.replace(/^\/+/, '');
+};
+
+const extractStoredMediaPath = (entry: unknown): string | null => {
+  if (!entry) return null;
+
+  if (typeof entry === 'string') {
+    const normalized = normalizeStoragePath(entry);
+    return normalized || null;
+  }
+
+  if (typeof entry === 'object') {
+    const typed = entry as {
+      image_url?: unknown;
+      public_url?: unknown;
+      url?: unknown;
+      path?: unknown;
+    };
+    const candidate = typed.path ?? typed.public_url ?? typed.image_url ?? typed.url;
+    if (typeof candidate === 'string') {
+      const normalized = normalizeStoragePath(candidate);
+      return normalized || null;
+    }
+  }
+
+  return null;
+};
+
+const compressImage = async (file: File, maxSizeMB: number = MAX_IMAGE_SIZE_MB): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        const maxDimension = 1920;
+        if (width > height && width > maxDimension) {
+          height = (height * maxDimension) / width;
+          width = maxDimension;
+        } else if (height > maxDimension) {
+          width = (width * maxDimension) / height;
+          height = maxDimension;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        const maxSizeBytes = maxSizeMB * 1024 * 1024;
+
+        const tryCompress = (quality: number) => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Gorsel sıkıştırılamadı'));
+                return;
+              }
+
+              if (blob.size > maxSizeBytes && quality > 0.1) {
+                tryCompress(quality - 0.1);
+                return;
+              }
+
+              resolve(
+                new File([blob], file.name, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now(),
+                })
+              );
+            },
+            'image/jpeg',
+            quality
+          );
+        };
+
+        tryCompress(0.9);
+      };
+      img.onerror = () => reject(new Error('Gorsel yuklenemedi'));
+    };
+    reader.onerror = () => reject(new Error('Dosya okunamadi'));
+  });
+};
 
 // Toast bileşeni - otomatik kaybolan bildirim
 const Toast = ({ message, type }: { message: string; type: 'success' | 'error' }) => (
@@ -41,14 +165,31 @@ export default function ManageListingsPage() {
     location: '',
   });
   
-  // Görsel yönetimi
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [uploadPreviews, setUploadPreviews] = useState<string[]>([]);
+  // Medya yönetimi
+  const [uploadedMedia, setUploadedMedia] = useState<UploadedMediaItem[]>([]);
   const [deletedImagePaths, setDeletedImagePaths] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [imageStatusMessage, setImageStatusMessage] = useState('');
+  const uploadedMediaRef = useRef<UploadedMediaItem[]>([]);
 
   const categoryOptions = useMemo(() => FALLBACK_CATEGORY_OPTIONS ?? [], []);
+
+  useEffect(() => {
+    uploadedMediaRef.current = uploadedMedia;
+  }, [uploadedMedia]);
+
+  useEffect(() => {
+    return () => {
+      uploadedMediaRef.current.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+    };
+  }, []);
+
+  const clearQueuedMedia = useCallback(() => {
+    setUploadedMedia((prev) => {
+      prev.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+      return [];
+    });
+  }, []);
 
   const fetchUserListings = useCallback(async (uid: string) => {
     setLoading(true);
@@ -92,8 +233,7 @@ export default function ManageListingsPage() {
       condition: toCanonicalCondition(listing.condition) || '2. El',
       location: listing.location || '',
     });
-    setUploadedFiles([]);
-    setUploadPreviews([]);
+    clearQueuedMedia();
     setDeletedImagePaths([]);
     setImageStatusMessage('');
     setSuccess('');
@@ -104,8 +244,7 @@ export default function ManageListingsPage() {
   const closeModal = () => {
     setEditModalOpen(false);
     setSelectedListing(null);
-    setUploadedFiles([]);
-    setUploadPreviews([]);
+    clearQueuedMedia();
     setDeletedImagePaths([]);
     setImageStatusMessage('');
   };
@@ -114,7 +253,19 @@ export default function ManageListingsPage() {
     setFormState(prev => ({ ...prev, [field]: value }));
   };
 
-  // Görsel dosya seçimi
+  const currentListingMediaPaths = useMemo(() => {
+    if (!selectedListing || !Array.isArray(selectedListing.images)) {
+      return [] as string[];
+    }
+
+    return selectedListing.images
+      .map((entry) => extractStoredMediaPath(entry))
+      .filter((path): path is string => Boolean(path) && !deletedImagePaths.includes(path));
+  }, [deletedImagePaths, selectedListing]);
+
+  const totalQueuedUploadBytes = uploadedMedia.reduce((sum, item) => sum + item.file.size, 0);
+
+  // Medya dosya seçimi
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -123,41 +274,74 @@ export default function ManageListingsPage() {
     setUploadingImages(true);
 
     try {
-      const newPreviews: string[] = [];
+      const nextMedia: UploadedMediaItem[] = [];
+      const unsupportedFiles: string[] = [];
       
       for (const file of files) {
-        if (!file.type.startsWith('image/')) {
-          throw new Error('Lütfen sadece görsel dosyası seçin');
+        const isImage = file.type.startsWith('image/');
+        const isVideo = file.type.startsWith('video/');
+
+        if (isImage && !SUPPORTED_IMAGE_FORMATS.includes(file.type)) {
+          unsupportedFiles.push(file.name);
+          continue;
         }
-        if (file.size > 10 * 1024 * 1024) {
-          throw new Error(`${file.name} 10MB\'dan büyük`);
+
+        if (!isImage && !isVideo) {
+          unsupportedFiles.push(file.name);
+          continue;
         }
-        
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          newPreviews.push(event.target?.result as string);
-        };
-        reader.readAsDataURL(file);
+
+        let processedFile = file;
+        if (isImage && file.size / (1024 * 1024) > MAX_IMAGE_SIZE_MB) {
+          processedFile = await compressImage(file, MAX_IMAGE_SIZE_MB);
+        }
+
+        nextMedia.push({
+          file: processedFile,
+          previewUrl: URL.createObjectURL(processedFile),
+          kind: isVideo ? 'video' : 'image',
+        });
       }
 
-      // Previewler yüklendikten sonra state güncelle
-      await new Promise(resolve => setTimeout(resolve, 100));
-      setUploadedFiles(prev => [...prev, ...files]);
-      setUploadPreviews(prev => [...prev, ...newPreviews]);
-      setImageStatusMessage(`✅ ${files.length} fotoğraf eklendi`);
+      if (unsupportedFiles.length > 0) {
+        alert(`⚠️ Desteklenmeyen dosyalar atlandı:\n${unsupportedFiles.join('\n')}\n\nDesteklenen gorsel formatlari: JPG, PNG, GIF, WebP`);
+      }
+
+      if (nextMedia.length === 0) {
+        return;
+      }
+
+      if (currentListingMediaPaths.length + uploadedMedia.length + nextMedia.length > MAX_MEDIA_ITEMS) {
+        nextMedia.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+        throw new Error(`En fazla ${MAX_MEDIA_ITEMS} adet fotograf veya video tutabilirsiniz`);
+      }
+
+      const nextTotalUploadBytes = totalQueuedUploadBytes + nextMedia.reduce((sum, item) => sum + item.file.size, 0);
+      if (nextTotalUploadBytes > MAX_TOTAL_UPLOAD_BYTES) {
+        nextMedia.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+        throw new Error(`Toplam yeni medya yuklemesi ${formatMegabytes(MAX_TOTAL_UPLOAD_BYTES)} sinirini asamaz`);
+      }
+
+      setUploadedMedia((prev) => [...prev, ...nextMedia]);
+      setImageStatusMessage(`✅ ${nextMedia.length} medya eklendi`);
     } catch (err: any) {
-      setError(err.message || 'Fotoğraf yüklenemedi');
+      setError(err.message || 'Medya yuklenemedi');
     } finally {
       setUploadingImages(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  // Yeni eklenen görseli sil
+  // Yeni eklenen medyayi sil
   const removeUploadedImage = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-    setUploadPreviews(prev => prev.filter((_, i) => i !== index));
-    setImageStatusMessage(`❌ Fotoğraf kaldırıldı`);
+    setUploadedMedia((prev) => {
+      const item = prev[index];
+      if (item) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+    setImageStatusMessage('❌ Medya kaldırıldı');
   };
 
   // Mevcut görseli silim listesine ekle
@@ -172,27 +356,27 @@ export default function ManageListingsPage() {
     setImageStatusMessage('✓ Silme iptal edildi');
   };
 
-  // Supabase'e görselleri yükle
+  // Supabase'e medyalari yukle
   const uploadImagesToStorage = async (): Promise<string[]> => {
     const uploadedPaths: string[] = [];
 
-    if (uploadedFiles.length === 0) return uploadedPaths;
+    if (uploadedMedia.length === 0) return uploadedPaths;
 
-    for (const file of uploadedFiles) {
+    for (const { file } of uploadedMedia) {
       try {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
         const filePath = `${userId}/${selectedListing?.id}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-          .from('product-images')
+          .from(PRODUCT_IMAGES_BUCKET)
           .upload(filePath, file);
 
         if (uploadError) throw uploadError;
         uploadedPaths.push(filePath);
       } catch (err: any) {
         console.error('Upload error:', err);
-        throw new Error(`Görsel yüklenemedi: ${err.message}`);
+        throw new Error(`Medya yuklenemedi: ${err.message}`);
       }
     }
 
@@ -206,7 +390,7 @@ export default function ManageListingsPage() {
     for (const path of deletedImagePaths) {
       try {
         const { error: deleteError } = await supabase.storage
-          .from('product-images')
+          .from(PRODUCT_IMAGES_BUCKET)
           .remove([path]);
         if (deleteError) console.warn('Storage delete warning:', deleteError);
       } catch (err) {
@@ -251,27 +435,21 @@ export default function ManageListingsPage() {
     setImageStatusMessage('');
 
     try {
-      // 1. Görselleri Storage'a yükle
+      // 1. Medyalari Storage'a yukle
       const newImagePaths = await uploadImagesToStorage();
 
-      // 2. Silinecek görselleri Storage'dan sil
+      // 2. Silinecek medyalari Storage'dan sil
       await deleteImagesFromStorage();
 
-      // 3. Mevcut görselleri derle (silinmeyecekler)
-      const currentImagePaths = Array.isArray(selectedListing.images)
-        ? selectedListing.images
-          .map(img => typeof img === 'string' ? img : (img as any)?.path || (img as any)?.url)
-          .filter((path): path is string => 
-            path && !deletedImagePaths.includes(path)
-          )
-        : [];
+      // 3. Mevcut medyalari derle (silinmeyecekler)
+      const currentImagePaths = currentListingMediaPaths;
 
-      // Tüm görselleri birleştir (mevcut + yeni)
+      // Tum medyalari birlestir (mevcut + yeni)
       const allImagePaths = [...currentImagePaths, ...newImagePaths];
 
-      // 4. İlk görsel URL'sini belirle
-      const firstImagePath = allImagePaths[0];
-      const imageUrl = firstImagePath ? toPublicUrl(firstImagePath) : selectedListing.image_url;
+      // 4. Ilk fotoğraf URL'sini belirle
+      const firstImagePath = allImagePaths.find((path) => !isVideoAsset(path));
+      const imageUrl = firstImagePath ? toPublicUrl(firstImagePath) : null;
 
       // 5. Veritabanını güncelle
       const payload = {
@@ -342,21 +520,45 @@ export default function ManageListingsPage() {
 
   const toPublicUrl = (value?: string | null) => {
     if (!value) return '';
-    if (/^https?:/i.test(value)) return value;
-    const { data } = supabase.storage.from('product-images').getPublicUrl(value);
+    if (/^https?:/i.test(value.trim())) {
+      const normalized = normalizeStoragePath(value);
+      if (!normalized) {
+        return value.trim();
+      }
+    }
+
+    const storagePath = normalizeStoragePath(value);
+    if (!storagePath) return '';
+
+    const { data } = supabase.storage.from(PRODUCT_IMAGES_BUCKET).getPublicUrl(storagePath);
     return data.publicUrl || '';
   };
 
   const primaryImage = (listing: DBListing) => {
-    if (listing.image_url) return toPublicUrl(listing.image_url);
     if (Array.isArray(listing.images) && listing.images.length > 0) {
-      const entry = listing.images[0];
-      if (typeof entry === 'string') return toPublicUrl(entry);
-      if (typeof entry === 'object') {
-        const candidate = (entry as any).public_url || (entry as any).image_url || (entry as any).url || (entry as any).path;
-        return toPublicUrl(candidate);
+      const galleryImage = listing.images
+        .map((entry) => {
+          if (typeof entry === 'string') return toPublicUrl(entry);
+          if (typeof entry === 'object') {
+            const candidate = (entry as any).public_url || (entry as any).image_url || (entry as any).url || (entry as any).path;
+            return toPublicUrl(candidate);
+          }
+          return '';
+        })
+        .find((url) => Boolean(url) && !isVideoAsset(url));
+
+      if (galleryImage) {
+        return galleryImage;
       }
     }
+
+    if (listing.image_url) {
+      const fallback = toPublicUrl(listing.image_url);
+      if (fallback && !isVideoAsset(fallback)) {
+        return fallback;
+      }
+    }
+
     return 'https://via.placeholder.com/400x300?text=Ilan';
   };
 
@@ -648,7 +850,7 @@ export default function ManageListingsPage() {
 
               {/* Fotoğraf Yönetimi */}
               <div className="border-t pt-5">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Fotoğraf Yönetimi</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Medya Yönetimi</h3>
                 
                 {imageStatusMessage && (
                   <div className="mb-4 p-3 rounded-2xl bg-blue-50 border border-blue-200 text-sm text-blue-700">
@@ -656,27 +858,45 @@ export default function ManageListingsPage() {
                   </div>
                 )}
 
-                {/* Mevcut Fotoğraflar */}
-                {Array.isArray(selectedListing.images) && selectedListing.images.length > 0 && (
+                <p className="mb-4 text-xs text-gray-600">
+                  Kalan alan: {currentListingMediaPaths.length + uploadedMedia.length}/{MAX_MEDIA_ITEMS} dosya. Yeni eklenen medya toplami: {formatMegabytes(totalQueuedUploadBytes)} / {formatMegabytes(MAX_TOTAL_UPLOAD_BYTES)}.
+                </p>
+
+                {/* Mevcut Medyalar */}
+                {currentListingMediaPaths.length > 0 && (
                   <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Mevcut Fotoğraflar</h4>
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Mevcut Medyalar</h4>
                     <div className="grid grid-cols-3 gap-3">
-                      {selectedListing.images
-                        .map((img, idx) => {
-                          const path = typeof img === 'string' ? img : (img as any)?.path || (img as any)?.url;
-                          return { path, idx };
-                        })
-                        .filter(({ path }) => path && !deletedImagePaths.includes(path as string))
-                        .map(({ path, idx }) => (
+                      {currentListingMediaPaths.map((path, idx) => (
                           <div
-                            key={`existing-${idx}`}
+                            key={`existing-${path}-${idx}`}
                             className="relative group rounded-lg overflow-hidden bg-gray-200 aspect-square"
                           >
-                            <img
-                              src={toPublicUrl(path)}
-                              alt="Fotoğraf"
-                              className="w-full h-full object-cover"
-                            />
+                            {isVideoAsset(path) ? (
+                              <>
+                                <video
+                                  src={toPublicUrl(path)}
+                                  className="w-full h-full object-cover bg-black"
+                                  muted
+                                  playsInline
+                                  preload="metadata"
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/65 text-white">
+                                    <i className="ri-play-fill text-lg" />
+                                  </span>
+                                </div>
+                              </>
+                            ) : (
+                              <img
+                                src={toPublicUrl(path)}
+                                alt="Medya"
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+                            <span className="absolute bottom-2 left-2 rounded-full bg-black/65 px-2 py-0.5 text-[10px] font-semibold text-white">
+                              {isVideoAsset(path) ? 'Video' : 'Foto'}
+                            </span>
                             <button
                               type="button"
                               onClick={() => markImageForDeletion(path as string)}
@@ -693,10 +913,10 @@ export default function ManageListingsPage() {
                   </div>
                 )}
 
-                {/* Silinmek İçin İşaretlenen Fotoğraflar */}
+                {/* Silinmek Icin Isaretlenen Medyalar */}
                 {deletedImagePaths.length > 0 && (
                   <div className="mb-6 p-3 rounded-2xl bg-red-50 border border-red-200">
-                    <p className="text-sm font-medium text-red-700 mb-2">Silinecek Fotoğraflar ({deletedImagePaths.length})</p>
+                    <p className="text-sm font-medium text-red-700 mb-2">Silinecek Medyalar ({deletedImagePaths.length})</p>
                     <div className="flex flex-wrap gap-2">
                       {deletedImagePaths.map(path => (
                         <button
@@ -712,43 +932,63 @@ export default function ManageListingsPage() {
                   </div>
                 )}
 
-                {/* Yeni Fotoğraf Yükle */}
+                {/* Yeni Medya Yukle */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">Yeni Fotoğraf Ekle</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Yeni Medya Ekle</label>
                   <label className="block p-6 rounded-2xl border-2 border-dashed border-purple-300 bg-purple-50 text-center cursor-pointer hover:border-purple-500 transition-colors">
                     <input
                       ref={fileInputRef}
                       type="file"
                       multiple
-                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      accept="image/jpeg,image/png,image/gif,image/webp,video/*"
                       onChange={handleImageSelect}
                       disabled={uploadingImages}
                       className="hidden"
                     />
                     <div>
-                      <i className="ri-image-add-line text-3xl text-purple-600 mb-2" />
-                      <p className="text-sm font-medium text-gray-900">Fotoğraf seçmek için tıklayın</p>
+                      <i className="ri-folder-video-line text-3xl text-purple-600 mb-2" />
+                      <p className="text-sm font-medium text-gray-900">Fotoğraf veya video seçmek için tıklayın</p>
                       <p className="text-xs text-gray-600 mt-1">veya sürükleyip bırakın</p>
-                      <p className="text-xs text-gray-500 mt-2">PNG, JPG, GIF (Max 10MB)</p>
+                      <p className="text-xs text-gray-500 mt-2">PNG, JPG, GIF, WebP ve video dosyalari. En fazla {MAX_MEDIA_ITEMS} dosya, yeni yuklemelerde toplam {formatMegabytes(MAX_TOTAL_UPLOAD_BYTES)}.</p>
                     </div>
                   </label>
                 </div>
 
-                {/* Yeni Yüklenen Fotoğraflar */}
-                {uploadPreviews.length > 0 && (
+                {/* Yeni Yuklenen Medyalar */}
+                {uploadedMedia.length > 0 && (
                   <div className="mt-4">
-                    <p className="text-sm font-medium text-gray-700 mb-3">Yeni Fotoğraflar ({uploadPreviews.length})</p>
+                    <p className="text-sm font-medium text-gray-700 mb-3">Yeni Medyalar ({uploadedMedia.length})</p>
                     <div className="grid grid-cols-3 gap-3">
-                      {uploadPreviews.map((preview, idx) => (
+                      {uploadedMedia.map((media, idx) => (
                         <div
                           key={`new-${idx}`}
                           className="relative group rounded-lg overflow-hidden bg-gray-200 aspect-square"
                         >
-                          <img
-                            src={preview}
-                            alt="Yeni Fotoğraf"
-                            className="w-full h-full object-cover"
-                          />
+                          {media.kind === 'video' ? (
+                            <>
+                              <video
+                                src={media.previewUrl}
+                                className="w-full h-full object-cover bg-black"
+                                muted
+                                playsInline
+                                preload="metadata"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/65 text-white">
+                                  <i className="ri-play-fill text-lg" />
+                                </span>
+                              </div>
+                            </>
+                          ) : (
+                            <img
+                              src={media.previewUrl}
+                              alt="Yeni Medya"
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                          <span className="absolute bottom-2 left-2 rounded-full bg-black/65 px-2 py-0.5 text-[10px] font-semibold text-white">
+                            {media.kind === 'video' ? 'Video' : 'Foto'}
+                          </span>
                           <button
                             type="button"
                             onClick={() => removeUploadedImage(idx)}

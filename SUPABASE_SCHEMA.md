@@ -183,7 +183,7 @@ CREATE POLICY drafts_all_policy ON active_drafts
 
 Perplexity API ile fiyat araştırması (24h cache).
 
-```
+```text
 URL: https://snovwbffwvmkgjulrtsm.supabase.co/functions/v1/ai-assistant-cached
 
 POST Body:
@@ -209,7 +209,7 @@ Response:
 
 Cache bypass için direkt Perplexity çağrısı.
 
-```
+```text
 URL: https://snovwbffwvmkgjulrtsm.supabase.co/functions/v1/ai-assistant
 ```
 
@@ -222,11 +222,33 @@ URL: https://snovwbffwvmkgjulrtsm.supabase.co/functions/v1/ai-assistant
 ```sql
 -- Bucket: product-images
 -- Public: Yes
--- Max file size: 5MB
--- Allowed types: image/jpeg, image/png, image/webp
+-- Max file size: 50MB per file
+-- Allowed types: image/jpeg, image/png, image/gif, image/webp,
+--                video/mp4, video/webm, video/ogg, video/quicktime,
+--                video/x-m4v, video/x-msvideo, video/x-matroska
 ```
 
-URL Pattern:
+Frontend rule:
+
+```text
+Create/Edit listing UI: en fazla 10 dosya, toplam 50 MB kuyruk limiti
 ```
-https://snovwbffwvmkgjulrtsm.supabase.co/storage/v1/object/public/product-images/{user_id}/{filename}
+
+Storage RLS note:
+
+```sql
+-- Existing authenticated INSERT policy on storage.objects must remain compatible
+-- with temporary create-listing uploads such as:
+--   product-images/{phone_or_prefix}/temp_xxx/{filename}
+--
+-- Profile edit deletes need a dedicated DELETE policy for finalized objects where
+-- folder[2] is the real listing id:
+--   product-images/{prefix}/{listing_id}/{filename}
+```
+
+Path patterns:
+
+```text
+Temporary upload: /storage/v1/object/public/product-images/{phone_or_prefix}/temp_xxx/{filename}
+Final listing media: /storage/v1/object/public/product-images/{prefix}/{listing_id}/{filename}
 ```

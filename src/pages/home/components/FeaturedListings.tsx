@@ -47,6 +47,32 @@ const resolveImageUrl = (entry?: unknown) => {
   return data.publicUrl || null;
 };
 
+const VIDEO_FILE_PATTERN = /\.(mp4|webm|ogg|mov|m4v|avi|mkv)(?:$|[?#])/i;
+
+const isVideoAsset = (value?: string | null) => {
+  if (!value) return false;
+  return value.startsWith('data:video/') || VIDEO_FILE_PATTERN.test(value);
+};
+
+const resolvePrimaryImage = (row: DBListing) => {
+  const galleryImages = Array.isArray(row.images)
+    ? row.images
+        .map((entry) => resolveImageUrl(entry))
+        .filter((url): url is string => Boolean(url) && !isVideoAsset(url))
+    : [];
+
+  if (galleryImages.length > 0) {
+    return galleryImages[0];
+  }
+
+  const fallback = resolveImageUrl(row.image_url);
+  if (fallback && !isVideoAsset(fallback)) {
+    return fallback;
+  }
+
+  return 'https://via.placeholder.com/400x300';
+};
+
 export default function FeaturedListings() {
   const [items, setItems] = useState<FeaturedItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,10 +92,7 @@ export default function FeaturedListings() {
             price: row.price,
             category: row.category,
             location: row.location || 'Türkiye',
-            image:
-              resolveImageUrl(row.images?.[0]) ||
-              resolveImageUrl(row.image_url) ||
-              'https://via.placeholder.com/400x300',
+            image: resolvePrimaryImage(row),
             path: buildListingPath(row.id, row.title),
           }));
 

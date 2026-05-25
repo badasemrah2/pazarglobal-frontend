@@ -55,6 +55,32 @@ const resolveImageUrl = (entry?: unknown) => {
   return data.publicUrl || null;
 };
 
+const VIDEO_FILE_PATTERN = /\.(mp4|webm|ogg|mov|m4v|avi|mkv)(?:$|[?#])/i;
+
+const isVideoAsset = (value?: string | null) => {
+  if (!value) return false;
+  return value.startsWith('data:video/') || VIDEO_FILE_PATTERN.test(value);
+};
+
+const resolvePrimaryImage = (item: DBListing) => {
+  const imageGallery = Array.isArray(item.images)
+    ? item.images
+        .map((entry) => resolveImageUrl(entry))
+        .filter((url): url is string => Boolean(url) && !isVideoAsset(url))
+    : [];
+
+  if (imageGallery.length > 0) {
+    return imageGallery[0];
+  }
+
+  const fallback = resolveImageUrl(item.image_url);
+  if (fallback && !isVideoAsset(fallback)) {
+    return fallback;
+  }
+
+  return 'https://via.placeholder.com/400x300';
+};
+
 export default function ListingsPage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -100,10 +126,7 @@ export default function ListingsPage() {
           category: item.category,
           location: item.location,
           condition: item.condition,
-          image:
-            resolveImageUrl(item.images?.[0]) ||
-            resolveImageUrl(item.image_url) ||
-            'https://via.placeholder.com/400x300',
+          image: resolvePrimaryImage(item),
           images: item.images
             ?.map(img => resolveImageUrl(img))
             .filter((url): url is string => Boolean(url)),

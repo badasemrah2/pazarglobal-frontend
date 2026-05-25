@@ -21,6 +21,17 @@ type FormData = {
   location: string;
 };
 
+type UploadedMediaItem = {
+  file: File;
+  previewUrl: string;
+  kind: 'image' | 'video';
+};
+
+const SUPPORTED_IMAGE_FORMATS = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const MAX_MEDIA_ITEMS = 10;
+const MAX_TOTAL_MEDIA_BYTES = 50 * 1024 * 1024;
+const MAX_IMAGE_SIZE_MB = 0.9;
+
 const conditions = [
   'Sıfır',
   '2. El',
@@ -133,6 +144,8 @@ const compressImage = async (file: File, maxSizeMB: number = 0.9): Promise<File>
   });
 };
 
+const formatMegabytes = (bytes: number): string => `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+
 export default function CreateListingPage() {
   const [categories, setCategories] = useState(FALLBACK_CATEGORY_OPTIONS);
 
@@ -155,10 +168,10 @@ export default function CreateListingPage() {
   const navigate = useNavigate();
   const [isScrolled] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [uploadedImages, setUploadedImages] = useState<File[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [uploadedMedia, setUploadedMedia] = useState<UploadedMediaItem[]>([]);
   const [compressing, setCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadedMediaRef = useRef<UploadedMediaItem[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const { user, customUser } = useAuthStore();
@@ -178,6 +191,18 @@ export default function CreateListingPage() {
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [showTitleSuggestions, setShowTitleSuggestions] = useState(false);
+
+  useEffect(() => {
+    uploadedMediaRef.current = uploadedMedia;
+  }, [uploadedMedia]);
+
+  useEffect(() => {
+    return () => {
+      uploadedMediaRef.current.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+    };
+  }, []);
+
+  const totalMediaBytes = uploadedMedia.reduce((sum, item) => sum + item.file.size, 0);
 
   // Kullanıcı girişi kontrolü - Hem Supabase hem WhatsApp auth
   useEffect(() => {
@@ -517,91 +542,84 @@ export default function CreateListingPage() {
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    if (files.length + uploadedImages.length > 5) {
-      alert('En fazla 5 resim yükleyebilirsiniz');
-      return;
-    }
-
-    // Desteklenen formatları kontrol et
-    const supportedFormats = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    const unsupportedFiles = files.filter(f => f.type.startsWith('image/') && !supportedFormats.includes(f.type));
-    
-    if (unsupportedFiles.length > 0) {
-      const formatNames = unsupportedFiles.map(f => f.name.split('.').pop()?.toUpperCase()).join(', ');
-      alert(`⚠️ Desteklenmeyen format: ${formatNames}\n\nDesteklenen formatlar: JPG, PNG, GIF, WebP\n\nLütfen resmi farklı formatta kaydedin.`);
+    if (files.length === 0) {
       return;
     }
 
     setCompressing(true);
 
     try {
-      const compressedFiles: File[] = [];
-      const newPreviewUrls: string[] = [];
+      const nextMedia: UploadedMediaItem[] = [];
+      const unsupportedFiles: string[] = [];
 
       for (const file of files) {
-        // Dosya boyutu kontrolü
-        const fileSizeMB = file.size / (1024 * 1024);
-        
-        if (file.type.startsWith('image/') && supportedFormats.includes(file.type)) {
-          // Resim sıkıştırma (max 0.9 MB)
-          if (fileSizeMB > 0.9) {
-            const compressed = await compressImage(file, 0.9);
-            compressedFiles.push(compressed);
-            
-            // Preview URL oluştur
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              newPreviewUrls.push(reader.result as string);
-              if (newPreviewUrls.length === files.length) {
-                setPreviewUrls(prev => [...prev, ...newPreviewUrls]);
-              }
-            };
-            reader.readAsDataURL(compressed);
-          } else {
-            compressedFiles.push(file);
-            
-            // Preview URL oluştur
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              newPreviewUrls.push(reader.result as string);
-              if (newPreviewUrls.length === files.length) {
-                setPreviewUrls(prev => [...prev, ...newPreviewUrls]);
-              }
-            };
-            reader.readAsDataURL(file);
-          }
-        } else if (file.type.startsWith('video/')) {
-          // Video boyut kontrolü (max 5 MB)
-          if (fileSizeMB > 5) {
-            alert(`${file.name} çok büyük! Videolar maksimum 5 MB olmalıdır.`);
-            continue;
-          }
-          compressedFiles.push(file);
-          
-          // Video preview
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            newPreviewUrls.push(reader.result as string);
-            if (newPreviewUrls.length === files.length) {
-              setPreviewUrls(prev => [...prev, ...newPreviewUrls]);
-            }
-          };
-          reader.readAsDataURL(file);
+        const isImage = file.type.startsWith('image/');
+        const isVideo = file.type.startsWith('video/');
+
+        if (isImage && !SUPPORTED_IMAGE_FORMATS.includes(file.type)) {
+          unsupportedFiles.push(file.name);
+          continue;
         }
+
+        if (!isImage && !isVideo) {
+          unsupportedFiles.push(file.name);
+          continue;
+        }
+
+        let processedFile = file;
+        if (isImage) {
+          const fileSizeMB = file.size / (1024 * 1024);
+          if (fileSizeMB > MAX_IMAGE_SIZE_MB) {
+            processedFile = await compressImage(file, MAX_IMAGE_SIZE_MB);
+          }
+        }
+
+        nextMedia.push({
+          file: processedFile,
+          previewUrl: URL.createObjectURL(processedFile),
+          kind: isVideo ? 'video' : 'image',
+        });
       }
 
-      setUploadedImages(prev => [...prev, ...compressedFiles]);
+      if (unsupportedFiles.length > 0) {
+        alert(`⚠️ Desteklenmeyen dosyalar atlandı:\n${unsupportedFiles.join('\n')}\n\nDesteklenen görsel formatları: JPG, PNG, GIF, WebP`);
+      }
+
+      if (nextMedia.length === 0) {
+        return;
+      }
+
+      if (uploadedMedia.length + nextMedia.length > MAX_MEDIA_ITEMS) {
+        nextMedia.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+        alert(`En fazla ${MAX_MEDIA_ITEMS} adet fotoğraf veya video yükleyebilirsiniz.`);
+        return;
+      }
+
+      const nextTotalBytes = totalMediaBytes + nextMedia.reduce((sum, item) => sum + item.file.size, 0);
+      if (nextTotalBytes > MAX_TOTAL_MEDIA_BYTES) {
+        nextMedia.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+        alert(`Toplam medya yükleme kapasitesi ${formatMegabytes(MAX_TOTAL_MEDIA_BYTES)}. Mevcut seçimle toplam ${formatMegabytes(nextTotalBytes)} oluyor.`);
+        return;
+      }
+
+      setUploadedMedia((prev) => [...prev, ...nextMedia]);
     } catch (error) {
-      console.error('Resim sıkıştırma hatası:', error);
-      alert('Resim işlenirken bir hata oluştu');
+      console.error('Medya işleme hatası:', error);
+      alert('Medya işlenirken bir hata oluştu');
     } finally {
       setCompressing(false);
+      e.target.value = '';
     }
   };
 
   const removeImage = (index: number) => {
-    setUploadedImages(prev => prev.filter((_, i) => i !== index));
-    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+    setUploadedMedia((prev) => {
+      const item = prev[index];
+      if (item) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const validateForm = (): boolean => {
@@ -639,7 +657,7 @@ export default function CreateListingPage() {
     // Geçici listing ID oluştur (gerçek ID insert sonrası gelecek)
     const tempListingId = `temp_${Date.now()}`;
 
-    for (const file of uploadedImages) {
+    for (const { file } of uploadedMedia) {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
       
@@ -652,7 +670,7 @@ export default function CreateListingPage() {
 
       if (uploadError) {
         console.error('Upload error:', uploadError);
-        throw new Error('Resim yükleme hatası');
+        throw new Error('Medya yükleme hatası');
       }
 
       uploadedPaths.push(filePath);
@@ -668,8 +686,8 @@ export default function CreateListingPage() {
       return;
     }
 
-    if (uploadedImages.length === 0) {
-      alert('En az 1 resim yüklemelisiniz');
+    if (uploadedMedia.length === 0) {
+      alert('En az 1 fotoğraf veya video yüklemelisiniz');
       return;
     }
 
@@ -923,19 +941,39 @@ export default function CreateListingPage() {
             onSubmit={handleSubmit}
             className="bg-white rounded-3xl shadow-xl p-4 sm:p-8 space-y-6"
           >
-            {/* Image Upload */}
+            {/* Media Upload */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Ürün Resimleri <span className="text-red-500">*</span>
+                Ürün Medyaları <span className="text-red-500">*</span>
               </label>
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 sm:gap-4">
-                {previewUrls.map((url, index) => (
-                  <div key={index} className="relative group">
-                    <img
-                      src={url}
-                      alt={`Preview ${index + 1}`}
-                      className="w-full h-24 object-cover rounded-lg"
-                    />
+                {uploadedMedia.map((media, index) => (
+                  <div key={`${media.file.name}-${index}`} className="relative group">
+                    {media.kind === 'video' ? (
+                      <>
+                        <video
+                          src={media.previewUrl}
+                          className="w-full h-24 object-cover rounded-lg bg-black"
+                          muted
+                          playsInline
+                          preload="metadata"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/65 text-white">
+                            <i className="ri-play-fill text-lg" />
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <img
+                        src={media.previewUrl}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-24 object-cover rounded-lg"
+                      />
+                    )}
+                    <span className="absolute bottom-1 left-1 rounded-full bg-black/65 px-2 py-0.5 text-[10px] font-semibold text-white">
+                      {media.kind === 'video' ? 'Video' : 'Foto'}
+                    </span>
                     <button
                       type="button"
                       onClick={() => removeImage(index)}
@@ -947,7 +985,7 @@ export default function CreateListingPage() {
                   </div>
                 ))}
                 
-                {uploadedImages.length < 5 && (
+                {uploadedMedia.length < MAX_MEDIA_ITEMS && (
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -979,7 +1017,10 @@ export default function CreateListingPage() {
                 aria-label="Resim veya video yükle"
               />
               <p className="text-xs text-gray-500 mt-2">
-                📷 Resimler: Max 0.9 MB (otomatik sıkıştırılır) • 🎥 Videolar: Max 5 MB • En fazla 5 dosya
+                Fotoğraf ve videoyu birlikte yükleyebilirsiniz. Fotoğraflar otomatik olarak {MAX_IMAGE_SIZE_MB.toFixed(1)} MB seviyesine sıkıştırılır. En fazla {MAX_MEDIA_ITEMS} dosya ve toplam {formatMegabytes(MAX_TOTAL_MEDIA_BYTES)} yükleyebilirsiniz.
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Kullanım: {uploadedMedia.length}/{MAX_MEDIA_ITEMS} dosya • {formatMegabytes(totalMediaBytes)} / {formatMegabytes(MAX_TOTAL_MEDIA_BYTES)}
               </p>
             </div>
 
@@ -1134,7 +1175,7 @@ export default function CreateListingPage() {
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 placeholder="Ürününüz hakkında detaylı bilgi verin..."
                 rows={5}
-                maxLength={500}
+                maxLength={1000}
                 className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none text-sm ${
                   errors.description ? 'border-red-500' : 'border-gray-300'
                 }`}
@@ -1142,7 +1183,7 @@ export default function CreateListingPage() {
               <div className="flex items-center justify-between mt-1">
                 {errors.description && <p className="text-red-500 text-xs">{errors.description}</p>}
                 <p className="text-xs text-gray-500 ml-auto">
-                  {formData.description.length}/500
+                  {formData.description.length}/1000
                 </p>
               </div>
             </div>

@@ -24,6 +24,13 @@ const REPORT_REASONS = [
   'Diğer',
 ] as const;
 
+const VIDEO_FILE_PATTERN = /\.(mp4|webm|ogg|mov|m4v|avi|mkv)(?:$|[?#])/i;
+
+const isVideoAsset = (value?: string | null) => {
+  if (!value) return false;
+  return value.startsWith('data:video/') || VIDEO_FILE_PATTERN.test(value);
+};
+
 type ReportReason = (typeof REPORT_REASONS)[number];
 
 interface ReportModalProps {
@@ -405,7 +412,8 @@ export default function ListingDetailPage() {
     const safeTitle = `${listing.title} | ${Number(listing.price || 0).toLocaleString('tr-TR')} TL - PazarGlobal`;
     const descriptionRaw = (listing.description || '').trim();
     const safeDescription = (descriptionRaw || `${listing.category} kategorisinde ilan detayı.`).slice(0, 160);
-    const primaryImage = listing.images?.[0] || `${PREFERRED_ORIGIN}/logo.png`;
+    const primaryImage = listing.images.find((item) => !isVideoAsset(item)) || `${PREFERRED_ORIGIN}/logo.png`;
+    const schemaImages = listing.images.filter((item) => !isVideoAsset(item));
 
     document.title = safeTitle;
     upsertMetaTag('meta[name="description"]', { name: 'description', content: safeDescription });
@@ -425,7 +433,7 @@ export default function ListingDetailPage() {
       '@type': 'Product',
       name: listing.title,
       description: descriptionRaw,
-      image: listing.images,
+      image: schemaImages.length > 0 ? schemaImages : [primaryImage],
       category: listing.category,
       brand: {
         '@type': 'Brand',
@@ -571,6 +579,8 @@ export default function ListingDetailPage() {
   const isOwnListing = isOwnedByViewer(viewerUserId, listing.user_id);
   const needsLoginForWhatsApp = !viewerUserId;
   const canContactViaWhatsApp = !isOwnListing && !needsLoginForWhatsApp && contactPhoneVisibility !== 'hidden' && Boolean(contactOwnerPhone);
+  const currentMedia = listing.images[currentImageIndex] || 'https://readdy.ai/api/search-image?query=product%20placeholder%20simple%20clean%20background&width=800&height=600&seq=placeholder&orientation=landscape';
+  const currentMediaIsVideo = isVideoAsset(currentMedia);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50">
@@ -587,11 +597,21 @@ export default function ListingDetailPage() {
             >
               {/* Main Image */}
               <div className="relative h-96 lg:h-[500px] rounded-2xl overflow-hidden bg-white shadow-lg">
-                <img
-                  src={listing.images[currentImageIndex] || 'https://readdy.ai/api/search-image?query=product%20placeholder%20simple%20clean%20background&width=800&height=600&seq=placeholder&orientation=landscape'}
-                  alt={listing.title}
-                  className="w-full h-full object-cover"
-                />
+                {currentMediaIsVideo ? (
+                  <video
+                    src={currentMedia}
+                    className="w-full h-full object-cover bg-black"
+                    controls
+                    playsInline
+                    preload="metadata"
+                  />
+                ) : (
+                  <img
+                    src={currentMedia}
+                    alt={listing.title}
+                    className="w-full h-full object-cover"
+                  />
+                )}
                 {isExampleListing ? (
                   <div className={`absolute top-4 left-4 px-4 py-2 ${exampleUi.solidClassName} text-sm font-bold rounded-full flex items-center space-x-2 shadow-lg`}>
                     <i className={exampleUi.icon} />
@@ -624,11 +644,28 @@ export default function ListingDetailPage() {
                           : 'hover:scale-105 opacity-70 hover:opacity-100'
                       }`}
                     >
-                      <img
-                        src={image}
-                        alt={`${listing.title} - ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
+                      {isVideoAsset(image) ? (
+                        <>
+                          <video
+                            src={image}
+                            className="w-full h-full object-cover bg-black"
+                            muted
+                            playsInline
+                            preload="metadata"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/65 text-white">
+                              <i className="ri-play-fill text-lg" />
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <img
+                          src={image}
+                          alt={`${listing.title} - ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
                     </button>
                   ))}
                 </div>
