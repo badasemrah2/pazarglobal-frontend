@@ -39,7 +39,8 @@ function getSeoConfig(pathname: string): SeoConfig {
   if (pathname === '/about') {
     return {
       title: 'Hakkımızda - PazarGlobal',
-      description: 'PazarGlobal vizyonu, AI destekli ilan yaklaşımı ve platform hikayemiz.',
+      description:
+        'PazarGlobal, pazarglobal.com resmi alan adında hizmet veren AI destekli ilan platformudur ve benzer isimli yatırım veya trading platformlarıyla bağlantılı değildir.',
       index: true,
     };
   }
