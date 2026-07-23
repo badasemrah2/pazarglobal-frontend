@@ -94,6 +94,48 @@ export default function AboutPage() {
             </p>
           </motion.div>
 
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="mb-16 rounded-3xl border border-primary-100 bg-white/90 p-8 shadow-lg backdrop-blur-sm md:p-10"
+            aria-labelledby="brand-clarification-title"
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-primary">
+                <i className="ri-shield-check-line text-2xl text-white" />
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-primary-600">
+                    Resmi Marka Açıklaması
+                  </p>
+                  <h2
+                    id="brand-clarification-title"
+                    className="text-2xl font-display font-bold text-gray-900 md:text-3xl"
+                  >
+                    PazarGlobal markasını doğru adreste doğrulayın
+                  </h2>
+                </div>
+                <div className="space-y-3 text-base leading-7 text-gray-700 md:text-lg">
+                  <p>
+                    PazarGlobal, resmi alan adı <span className="font-semibold text-gray-900">pazarglobal.com</span>{' '}
+                    olan yapay zekâ destekli ilan ve pazaryeri platformudur.
+                  </p>
+                  <p>
+                    PazarGlobal&apos;in, Global Pazar, <span className="font-semibold text-gray-900">pazar-global.com</span>{' '}
+                    veya benzer ad taşıyan yatırım ya da trading platformlarıyla bir bağlantısı bulunmamaktadır.
+                  </p>
+                  <p>
+                    Platformumuzu ziyaret ederken resmi site adresinin{' '}
+                    <span className="font-semibold text-gray-900">pazarglobal.com</span> olduğunu kontrol etmenizi
+                    öneririz.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.section>
+
           {/* Stats */}
           <div className="grid md:grid-cols-4 gap-8 mb-20">
             {stats.map((stat, index) => (
