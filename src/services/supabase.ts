@@ -29,6 +29,8 @@ export interface DBListing {
   created_at: string;
   status: string;
   user_id: string;
+  /** Listings run for 30 days; null means no deadline was ever set (legacy rows). */
+  expires_at?: string | null;
 }
 
 // Environment config

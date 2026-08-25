@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { buildCanonicalUrl, normalizePathname, PREFERRED_ORIGIN } from '../../lib/seo';
 
 type SeoConfig = {
   title: string;
@@ -56,7 +57,7 @@ function getSeoConfig(pathname: string): SeoConfig {
     return {
       title: 'İlan Oluştur - PazarGlobal',
       description: 'Fotoğraf, metin veya konuşma ile saniyeler içinde ilan oluşturun.',
-      index: true,
+      index: false,
     };
   }
 
@@ -73,10 +74,9 @@ function getSeoConfig(pathname: string): SeoConfig {
   }
 
   return {
-    title: `${SITE_NAME} - AI Destekli İlan Platformu`,
-    description:
-      "Türkiye'nin AI destekli ilan platformu. İlan verin, arayın ve WhatsApp üzerinden yönetin.",
-    index: true,
+    title: `${SITE_NAME} - Sayfa Bulunamadi`,
+    description: 'Aradiginiz sayfa bulunamadi.',
+    index: false,
   };
 }
 
@@ -105,9 +105,9 @@ export default function SeoManager() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    const config = getSeoConfig(pathname);
-    const origin = window.location.origin || 'https://pazarglobal.com';
-    const canonical = `${origin}${pathname === '/' ? '' : pathname}`;
+    const normalizedPathname = normalizePathname(pathname);
+    const config = getSeoConfig(normalizedPathname);
+    const canonical = buildCanonicalUrl(normalizedPathname);
     const robots = config.index ? 'index,follow,max-image-preview:large' : 'noindex,nofollow';
 
     document.title = config.title;
@@ -122,7 +122,7 @@ export default function SeoManager() {
     upsertMeta('meta[property="og:type"]', { property: 'og:type', content: 'website' });
     upsertMeta('meta[property="og:url"]', { property: 'og:url', content: canonical });
     upsertMeta('meta[property="og:site_name"]', { property: 'og:site_name', content: SITE_NAME });
-    upsertMeta('meta[property="og:image"]', { property: 'og:image', content: `${origin}${DEFAULT_OG_IMAGE}` });
+    upsertMeta('meta[property="og:image"]', { property: 'og:image', content: `${PREFERRED_ORIGIN}${DEFAULT_OG_IMAGE}` });
     upsertMeta('meta[name="twitter:card"]', { name: 'twitter:card', content: 'summary_large_image' });
     upsertMeta('meta[name="twitter:title"]', { name: 'twitter:title', content: config.title });
     upsertMeta('meta[name="twitter:description"]', {
@@ -131,7 +131,7 @@ export default function SeoManager() {
     });
     upsertMeta('meta[name="twitter:image"]', {
       name: 'twitter:image',
-      content: `${origin}${DEFAULT_OG_IMAGE}`,
+      content: `${PREFERRED_ORIGIN}${DEFAULT_OG_IMAGE}`,
     });
     upsertCanonical(canonical);
   }, [pathname]);

@@ -24,6 +24,10 @@ declare const Deno: {
 const BACKEND_URL = Deno.env.get('BACKEND_URL') || 'https://pazarglobal-agent-production.up.railway.app';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const STORAGE_BUCKET = Deno.env.get('SUPABASE_STORAGE_BUCKET') || 'product-images';
+// Shared secret proving to the backend that this request really came from the Edge
+// traffic controller. Without it the backend cannot trust the PIN-verified user_id we
+// inject, because `channel` is otherwise attacker-controlled.
+const BACKEND_INTERNAL_SECRET = Deno.env.get('BACKEND_INTERNAL_SECRET') || '';
 const SESSION_DURATION_MINUTES = 10;
 const LAST_ACTIVITY_THROTTLE_SECONDS = 30;
 
@@ -39,6 +43,17 @@ function buildBackendUrl(path: string): string {
   const base = normalizeBackendBaseUrl(BACKEND_URL);
   const p = (path || '').startsWith('/') ? path : `/${path}`;
   return `${base}${p}`;
+}
+
+function backendHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...extra,
+  };
+  if (BACKEND_INTERNAL_SECRET) {
+    headers['X-Internal-Secret'] = BACKEND_INTERNAL_SECRET;
+  }
+  return headers;
 }
 
 function toPublicMediaUrl(path?: string): string | null {
@@ -92,6 +107,9 @@ Deno.serve(async (req: Request) => {
       const backendPayload = {
         user_id: requestData.user_id || requestData.phone || 'webchat',
         phone: requestData.phone,
+        // Declare the real channel: webchat must go through JWT verification and must
+        // never inherit the JWT-free whatsapp trust path.
+        channel: 'webchat',
         message: requestData.message,
         conversation_history: requestData.conversation_history || [],
         media_paths: requestData.media_paths,
@@ -102,11 +120,10 @@ Deno.serve(async (req: Request) => {
         user_context: requestData.user_context,
       };
 
+      const callerAuth = req.headers.get('Authorization') || '';
       const backendResponse = await fetch(buildBackendUrl('/agent/run'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: backendHeaders(callerAuth ? { Authorization: callerAuth } : {}),
         body: JSON.stringify(backendPayload),
       });
 
@@ -245,6 +262,7 @@ Deno.serve(async (req: Request) => {
         const backendPayload = {
           user_id: activeSession.user_id,
           phone,
+          channel: 'whatsapp',
           message: requestData.message,
           conversation_history: requestData.conversation_history || [],
           media_paths: mediaUrls,
@@ -257,9 +275,7 @@ Deno.serve(async (req: Request) => {
 
         const backendResponse = await fetch(buildBackendUrl('/agent/run'), {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: backendHeaders(),
           body: JSON.stringify(backendPayload),
         });
 

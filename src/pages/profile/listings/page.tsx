@@ -7,6 +7,7 @@ import { FALLBACK_CATEGORY_OPTIONS } from '../../../constants/categories';
 import { toCanonicalCondition } from '../../../lib/condition';
 import type { DBListing } from '../../../services/supabase';
 import { buildListingPath } from '../../../lib/seo';
+import ListingExpiry from '../../../components/feature/ListingExpiry';
 
 const CONDITIONS: Array<ReturnType<typeof toCanonicalCondition>> = ['Sıfır', '2. El', 'Az Kullanılmış'];
 const PRODUCT_IMAGES_BUCKET = 'product-images';
@@ -190,6 +191,20 @@ export default function ManageListingsPage() {
       return [];
     });
   }, []);
+
+  // Patch the row in place after renewal instead of refetching the whole list.
+  const handleExtended = useCallback(
+    (listingId: string) => (expiresAt: string) => {
+      setListings((prev) =>
+        prev.map((item) =>
+          item.id === listingId
+            ? { ...item, expires_at: expiresAt, status: item.status === 'expired' ? 'active' : item.status }
+            : item,
+        ),
+      );
+    },
+    [],
+  );
 
   const fetchUserListings = useCallback(async (uid: string) => {
     setLoading(true);
@@ -692,6 +707,16 @@ export default function ManageListingsPage() {
                         <i className="ri-calendar-line mr-1" />
                         {formatDate(listing.created_at)}
                       </div>
+                      <div className="mt-3">
+                        <ListingExpiry
+                          listingId={listing.id}
+                          userId={userId}
+                          expiresAt={listing.expires_at}
+                          status={listing.status}
+                          onExtended={handleExtended(listing.id)}
+                          compact
+                        />
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -722,7 +747,14 @@ export default function ManageListingsPage() {
                         <div className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
                           {(listing.price ?? 0).toLocaleString('tr-TR')} ₺
                         </div>
-                        <div className="flex flex-wrap gap-3">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <ListingExpiry
+                            listingId={listing.id}
+                            userId={userId}
+                            expiresAt={listing.expires_at}
+                            status={listing.status}
+                            onExtended={handleExtended(listing.id)}
+                          />
                           <button
                             onClick={() => navigate(buildListingPath(listing.id, listing.title))}
                             className="px-4 py-2 rounded-full border border-gray-200 text-gray-600 hover:border-gray-400 transition-all cursor-pointer"
