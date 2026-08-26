@@ -108,7 +108,12 @@ serve(async (req) => {
       .select('*')
       // Some environments have legacy rows with NULL or 'published' status.
       // Keep them visible so the UI doesn't silently drop listings.
-      .or('status.eq.active,status.eq.published,status.is.null');
+      .or('status.eq.active,status.eq.published,status.is.null')
+      // Listings run for 30 days and then stop being shown publicly. "İlanlarım" is
+      // deliberately exempt: that is where the owner sees the countdown and the
+      // "Yeniden Yayınla" button, so hiding expired ones there would leave no way back.
+      // A NULL expires_at means no deadline was ever set (legacy rows) and stays visible.
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
 
     // Kategori filtresi (array support)
     if (categories && Array.isArray(categories) && categories.length > 0) {

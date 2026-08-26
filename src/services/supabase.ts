@@ -59,6 +59,18 @@ async function fetchViaEdge(filters: FilterState): Promise<DBListing[]> {
 }
 
 /**
+ * PostgREST filter hiding listings whose 30-day window has passed.
+ *
+ * Applies to public surfaces only. "İlanlarım" deliberately keeps showing expired
+ * listings: that is where the owner sees the countdown and the "Yeniden Yayınla" button,
+ * and hiding them there would leave no way to bring one back.
+ *
+ * A NULL expires_at means "no deadline was ever set" (legacy rows) and stays visible.
+ */
+export const notExpiredFilter = () =>
+  `expires_at.is.null,expires_at.gt.${new Date().toISOString()}`;
+
+/**
  * Fetch listings directly from Supabase (fallback)
  */
 async function fetchDirect(filters: FilterState): Promise<DBListing[]> {
@@ -68,7 +80,8 @@ async function fetchDirect(filters: FilterState): Promise<DBListing[]> {
       .select('*')
       // Some environments have legacy rows with NULL or 'published' status.
       // Treat them as visible so the UI doesn't silently drop listings.
-      .or('status.eq.active,status.eq.published,status.is.null');
+      .or('status.eq.active,status.eq.published,status.is.null')
+      .or(notExpiredFilter());
 
     // Category filter
     if (filters.categories && filters.categories.length > 0) {
