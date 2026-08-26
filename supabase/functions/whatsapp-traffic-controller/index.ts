@@ -56,6 +56,14 @@ function backendHeaders(extra: Record<string, string> = {}): Record<string, stri
   return headers;
 }
 
+function maskPhone(value?: string): string {
+  const raw = (value || '').replace('whatsapp:', '').trim();
+  if (!raw) return '<yok>';
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length <= 8) return '*'.repeat(digits.length);
+  return `${raw.slice(0, 5)}****${digits.slice(-4)}`;
+}
+
 function toPublicMediaUrl(path?: string): string | null {
   if (!path) return null;
   const trimmed = path.trim();
@@ -151,7 +159,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log(`📱 WhatsApp request from: ${phone}`);
+    // Masked for the same reason as in the bridge: choosing to show a number on a
+    // listing is not consent to keep it in infrastructure logs.
+    console.log(`📱 WhatsApp request from: ${maskPhone(phone)}`);
 
     // ───────────────────────────────────────────────────────────
     // 2.1. Aktif Session Kontrolü
@@ -198,9 +208,18 @@ Deno.serve(async (req: Request) => {
       // Session still valid → TRAFİĞİ GEÇİR ✅
       if (secondsLeft > 0) {
         // Kullanıcı "iptal" dedi mi? (WORD BOUNDARY kontrolü - "Açıklama" gibi false positives önlenir)
-        const cancelKeywords = ['iptal', 'vazgeç', 'kapat', 'çık', 'cancel', 'stop'];
-        const messageWords = message.toLowerCase().split(/\s+/);
-        const isCancelRequest = cancelKeywords.some(keyword => 
+        // Only an explicit sign-out ends the session.
+        //
+        // "iptal" and "vazgeç" used to be in here, so a seller cancelling their *listing*
+        // was thrown out of their session and asked for the PIN again. Those words belong
+        // to the agent, which cancels the draft and keeps the conversation going. Ending
+        // the session is a separate intent and needs its own words.
+        //
+        // Turkish note: "İPTAL".toLowerCase() yields "i" + U+0307, which never matches a
+        // plain "iptal", so the dotted capital is normalised first.
+        const logoutKeywords = ['çık', 'cık', 'kapat', 'stop', 'exit', 'logout'];
+        const messageWords = message.replace(/İ/g, 'i').toLowerCase().split(/\s+/);
+        const isCancelRequest = logoutKeywords.some(keyword =>
           messageWords.includes(keyword)
         );
 
@@ -220,7 +239,9 @@ Deno.serve(async (req: Request) => {
           return new Response(
             JSON.stringify({
               success: true,
-              response: '✅ İşlem iptal edildi. Oturumunuz kapatıldı.\n\nYeni işlem için PIN kodunuzu girin.',
+              response:
+                '👋 Oturumunuz kapatıldı. Görüşmek üzere!\n\n' +
+                'Yeni işlem için PIN kodunuzu yazmanız yeterli.',
               require_pin: true,
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -325,7 +346,9 @@ Deno.serve(async (req: Request) => {
           JSON.stringify({
             success: false,
             require_pin: true,
-            response: '⏰ Oturumunuz sona erdi (10 dakika).\n\nGüvenlik için PIN kodunuzu tekrar girin:',
+            response:
+              `⏰ Oturumunuz sona erdi (güvenlik için ${SESSION_DURATION_MINUTES} dakika).\n\n` +
+              'Kaldığınız yerden devam etmek için PIN kodunuzu tekrar yazın.',
             session_expired: true,
             user_id: activeSession.user_id,
             session_id: activeSession.id,
@@ -412,7 +435,15 @@ Deno.serve(async (req: Request) => {
         return new Response(
           JSON.stringify({
             success: true,
-            response: `✅ Giriş başarılı!\n\n🕐 ${SESSION_DURATION_MINUTES} dakika boyunca işlem yapabilirsiniz.\n\nNe yapmak istersiniz?`,
+            // Concrete examples rather than an open question: they teach the free-form
+            // capability (one messy message becomes a listing) that nobody can guess.
+            response:
+              `✅ *Hoş geldiniz!* ${SESSION_DURATION_MINUTES} dakikalık oturumunuz başladı.\n\n` +
+              'Ne yapmak istersiniz? Örneğin:\n\n' +
+              '📸 _"iPhone 14 satıyorum, 25.000 TL, İstanbul"_\n' +
+              '🔍 _"Bursa\'da kiralık daire var mı?"_\n' +
+              '💰 _"Golf 7 kaç para eder?"_\n\n' +
+              'Fotoğraf da gönderebilirsiniz.',
             session_token: newSession.session_token,
             expires_at: expiresAt.toISOString(),
             user_id: result.user_id,
@@ -444,7 +475,17 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         success: false,
         require_pin: true,
-        response: '🔒 Güvenlik için 4 haneli PIN kodunuzu girin:\n\n(PIN kodunuzu profil ayarlarından oluşturabilirsiniz)',
+        // First contact. This used to open by demanding a PIN with no explanation of
+        // what the bot even is, which reads as suspicious to someone messaging it for
+        // the first time. Say what this is, then ask.
+        response:
+          '👋 *PazarGlobal\'e hoş geldiniz!*\n\n' +
+          'Ben ilan asistanınızım. Buradan:\n' +
+          '📸 Fotoğraf veya birkaç kelimeyle ilan verebilir\n' +
+          '🔍 Aradığınız ürünü bulabilir\n' +
+          '💰 Piyasa fiyatı öğrenebilirsiniz\n\n' +
+          'Başlamak için 4 haneli PIN kodunuzu yazın.\n' +
+          '_PIN\'iniz yoksa pazarglobal.com profil ayarlarından oluşturabilirsiniz._',
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
     );
